@@ -5,7 +5,7 @@ import JobResultSummary from "./components/JobResultSummary";
 import CompareView from "./components/CompareView";
 import WebsiteLoadTestSection from "./components/WebsiteLoadTestSection";
 import LoadTestConfig from "./components/LoadTestConfig";
-import { colors, font, space } from "./theme";
+import { colors, font, space, radius } from "./theme";
 
 const BASE = import.meta.env.VITE_API_BASE || "http://localhost:5000";
 
@@ -381,8 +381,25 @@ export default function App() {
             <span style={{ color: colors.textMuted }}>
               Job <span style={{ fontFamily: font.mono, color: colors.text }}>{jobId}</span>
             </span>
-            <span style={{ color: statusColor, fontWeight: 600, textTransform: "capitalize" }}>
-              {jobStatus}
+            <span style={{ display: "flex", alignItems: "center", gap: space.sm }}>
+              {jobResult?.child_jobs?.length > 1 && (
+                <span
+                  style={{
+                    background: colors.accentSoft,
+                    color: colors.accent,
+                    fontFamily: font.mono,
+                    fontSize: 11,
+                    padding: "2px 9px",
+                    borderRadius: radius.pill,
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  Split across {jobResult.child_jobs.length} workers
+                </span>
+              )}
+              <span style={{ color: statusColor, fontWeight: 600, textTransform: "capitalize" }}>
+                {jobStatus}
+              </span>
             </span>
           </div>
           {websitePathsUsed && (
