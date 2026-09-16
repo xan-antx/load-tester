@@ -1,14 +1,16 @@
 import { colors, font, space } from "../theme";
 
-export default function Section({ title, children }) {
+export default function Section({ title, children, id }) {
   return (
     <div
+      id={id}
       style={{
         border: `1px solid ${colors.border}`,
         borderRadius: 10,
         padding: space.xl,
         marginTop: space.lg,
         background: colors.surface,
+        scrollMarginTop: 56,
       }}
     >
       <h2 style={{ marginTop: 0, marginBottom: space.lg, fontSize: 16, fontWeight: 600, color: colors.text }}>

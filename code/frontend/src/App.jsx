@@ -9,6 +9,37 @@ import { colors, font, space, radius } from "./theme";
 
 const BASE = import.meta.env.VITE_API_BASE || "http://localhost:5000";
 
+// Navigation-only step indicator: scrolls to sections, never hides them.
+function StepDot({ n, label, complete, available, targetId }) {
+  return (
+    <button
+      onClick={() =>
+        available &&
+        document.getElementById(targetId)?.scrollIntoView({ behavior: "smooth", block: "start" })
+      }
+      title={`${n}. ${label}${complete ? " — done" : available ? "" : " — not reached yet"}`}
+      aria-label={`Go to step ${n}: ${label}`}
+      disabled={!available}
+      style={{
+        width: 28,
+        height: 28,
+        borderRadius: "50%",
+        border: `1px solid ${complete ? colors.accent : colors.border}`,
+        background: complete ? colors.accentSoft : colors.surface,
+        color: complete ? colors.accent : available ? colors.text : colors.textMuted,
+        fontSize: 12,
+        fontWeight: 600,
+        fontFamily: font.mono,
+        cursor: available ? "pointer" : "default",
+        opacity: available || complete ? 1 : 0.45,
+        padding: 0,
+      }}
+    >
+      {complete ? "✓" : n}
+    </button>
+  );
+}
+
 export default function App() {
   const [url, setUrl] = useState("https://httpbin.org/post");
   const [analyzeResult, setAnalyzeResult] = useState(null);
@@ -303,6 +334,18 @@ export default function App() {
         color: colors.text,
       }}
     >
+      <nav className="step-rail" aria-label="Workflow steps">
+        {[
+          { n: 1, label: "Enter target", complete: analyzeResult != null, available: true, targetId: "step-1" },
+          { n: 2, label: "Sample input", complete: cases.length > 0, available: isApi, targetId: "step-2" },
+          { n: 3, label: "Select edge cases", complete: jobId != null, available: cases.length > 0, targetId: "step-3" },
+          { n: 4, label: "Load test status", complete: jobResult != null, available: jobId != null, targetId: "step-4" },
+          { n: 5, label: "Compare past runs", complete: compareResult != null, available: jobHistory.length > 0, targetId: "step-5" },
+        ].map((s) => (
+          <StepDot key={s.n} {...s} />
+        ))}
+      </nav>
+
       <h1 style={{ fontSize: 28, fontWeight: 700, letterSpacing: "-0.02em", marginBottom: space.xs }}>
         Elevate Load Tester
       </h1>
@@ -344,7 +387,7 @@ export default function App() {
         </div>
       )}
 
-      <Section title="1. Enter target">
+      <Section id="step-1" title="1. Enter target">
         <input
           style={inputStyle}
           value={url}
@@ -383,7 +426,7 @@ export default function App() {
       </Section>
 
       {isApi && (
-        <Section title="2. Sample input for API targets">
+        <Section id="step-2" title="2. Sample input for API targets">
           <p style={{ color: colors.textMuted, fontSize: 13.5, marginTop: 0 }}>
             Paste a sample JSON body this API expects
           </p>
@@ -398,7 +441,7 @@ export default function App() {
       )}
 
       {cases.length > 0 && (
-        <Section title="3. Select edge cases">
+        <Section id="step-3" title="3. Select edge cases">
           <div
             style={{
               display: "flex",
@@ -492,7 +535,7 @@ export default function App() {
       )}
 
       {jobId && (
-        <Section title="4. Load test status">
+        <Section id="step-4" title="4. Load test status">
           <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13.5, marginBottom: space.sm }}>
             <span style={{ color: colors.textMuted }}>
               Job <span style={{ fontFamily: font.mono, color: colors.text }}>{jobId}</span>
@@ -563,7 +606,7 @@ export default function App() {
       )}
 
       {jobHistory.length > 0 && (
-        <Section title="5. Compare past runs">
+        <Section id="step-5" title="5. Compare past runs">
           <>
             <div style={{ display: "flex", gap: space.sm, marginBottom: space.md }}>
               <select

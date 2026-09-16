@@ -28,6 +28,34 @@ input, textarea, select, button {
   outline-offset: 2px;
 }
 
+/* Sticky step rail: vertical beside the 720px column on wide screens,
+   horizontal bar pinned to the top on narrow ones (colors mirror theme.js) */
+.step-rail {
+  position: fixed;
+  left: max(12px, calc(50% - 360px - 72px));
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  z-index: 10;
+}
+@media (max-width: 919px) {
+  .step-rail {
+    position: sticky;
+    top: 0;
+    left: auto;
+    transform: none;
+    flex-direction: row;
+    justify-content: center;
+    gap: 12px;
+    padding: 8px 0;
+    margin: 0 -8px;
+    background: rgba(15, 20, 25, 0.92);
+    backdrop-filter: blur(4px);
+  }
+}
+
 /* Roomier scrollbar for the edge-case list (colors mirror theme.js) */
 .case-list {
   scrollbar-width: auto;
