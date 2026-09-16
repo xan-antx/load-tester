@@ -1,0 +1,47 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: load-tester-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: load-tester-api
+  template:
+    metadata:
+      labels:
+        app: load-tester-api
+    spec:
+      containers:
+        - name: load-tester-api
+          image: load-tester-api:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 5000
+          envFrom:
+            - secretRef:
+                name: aws-sqs-credentials
+          volumeMounts:
+            - name: db-storage
+              mountPath: /data
+          env:
+            - name: DB_PATH
+              value: "/data/load_tests.db"
+            - name: USE_SQS
+              value: "true"
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 5000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 5000
+            initialDelaySeconds: 10
+            periodSeconds: 20
+      volumes:
+        - name: db-storage
+          persistentVolumeClaim:
+            claimName: load-tester-db-pvc

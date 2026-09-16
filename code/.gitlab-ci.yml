@@ -1,0 +1,36 @@
+stages:
+  - test
+  - build
+  - deploy
+
+test:
+  stage: test
+  tags:
+    - k3s
+  script:
+    - python3 -m venv .venv
+    - .venv/bin/pip install -r requirements.txt
+    - .venv/bin/pip install pytest
+    - .venv/bin/pytest
+
+build:
+  stage: build
+  tags:
+    - k3s
+  script:
+    - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin "$CI_REGISTRY"
+    - docker build -t "$CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA" .
+    - docker push "$CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA"
+
+deploy:
+  stage: deploy
+  tags:
+    - k3s
+  variables:
+    KUBECONFIG: "/home/gitlab-runner/.kube/config"
+  script:
+    - kubectl apply -f k8s/pvc.yaml
+    - kubectl apply -f k8s/deployment.yaml
+    - kubectl apply -f k8s/service.yaml
+    - kubectl set image deployment/load-tester-api load-tester-api="$CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA"
+    - kubectl rollout status deployment/load-tester-api --timeout=120s
