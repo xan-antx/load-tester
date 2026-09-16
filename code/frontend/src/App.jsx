@@ -7,7 +7,7 @@ import WebsiteLoadTestSection from "./components/WebsiteLoadTestSection";
 import LoadTestConfig from "./components/LoadTestConfig";
 import { colors, font, space } from "./theme";
 
-const BASE = "http://13.63.14.208:30231";
+const BASE = import.meta.env.VITE_API_BASE || "http://localhost:5000";
 
 export default function App() {
   const [url, setUrl] = useState("https://httpbin.org/post");
@@ -51,7 +51,12 @@ export default function App() {
     try {
       const resp = await fetch(`${BASE}/api/jobs`);
       const data = await resp.json();
-      setJobHistory(data.jobs || []);
+      const jobs = (data.jobs || []).map((j) => ({ ...j, id: j.job_id }));
+      const groups = (data.job_groups || []).map((g) => ({ ...g, id: g.group_id }));
+      const combined = [...jobs, ...groups].sort((a, b) =>
+        (b.created_at || "").localeCompare(a.created_at || "")
+      );
+      setJobHistory(combined);
     } catch {
       // silent — history is a nice-to-have, don't block the main flow on it
     }
@@ -82,7 +87,7 @@ export default function App() {
         setError(data.error || "Could not reach or analyze that URL");
       }
     } catch (err) {
-      setError(`${err.message} (Is the Flask server running on port 5000?)`);
+      setError(`${err.message} (Is the backend reachable at ${BASE}?)`);
     } finally {
       setAnalyzing(false);
     }
@@ -411,7 +416,7 @@ export default function App() {
               >
                 <option value="">— Run A —</option>
                 {jobHistory.map((j) => (
-                  <option key={j.job_id} value={j.job_id}>
+                  <option key={j.id} value={j.id}>
                     {j.target_url} · {j.users}u · {j.status} · {j.created_at}
                   </option>
                 ))}
@@ -423,7 +428,7 @@ export default function App() {
               >
                 <option value="">— Run B —</option>
                 {jobHistory.map((j) => (
-                  <option key={j.job_id} value={j.job_id}>
+                  <option key={j.id} value={j.id}>
                     {j.target_url} · {j.users}u · {j.status} · {j.created_at}
                   </option>
                 ))}

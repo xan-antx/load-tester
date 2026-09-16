@@ -22,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# local env config (VITE_API_BASE etc.) — commit .env.example instead
+.env

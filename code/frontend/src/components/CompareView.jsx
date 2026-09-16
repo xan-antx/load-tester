@@ -2,8 +2,8 @@ import { thStyle, tdStyle } from "./Section";
 import { parseStatsCsv } from "../utils/parseStatsCsv";
 
 export default function CompareView({ jobA, jobB }) {
-  const aRows = parseStatsCsv(jobA.stats_csv);
-  const bRows = parseStatsCsv(jobB.stats_csv);
+  const aRows = parseStatsCsv(jobA.aggregated_stats_csv || jobA.stats_csv);
+  const bRows = parseStatsCsv(jobB.aggregated_stats_csv || jobB.stats_csv);
   const aTotal = aRows.find((r) => r.Name === "Aggregated");
   const bTotal = bRows.find((r) => r.Name === "Aggregated");
 

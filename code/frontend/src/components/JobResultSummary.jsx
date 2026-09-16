@@ -2,7 +2,7 @@ import { btnStyle, preStyle, thStyle, tdStyle } from "./Section";
 import { parseStatsCsv } from "../utils/parseStatsCsv";
 
 export default function JobResultSummary({ data, showRaw, onToggleRaw }) {
-  const rows = parseStatsCsv(data.stats_csv);
+  const rows = parseStatsCsv(data.aggregated_stats_csv || data.stats_csv);
   const nonAggregated = rows.filter((r) => r.Name && r.Name !== "Aggregated");
   const aggregated = rows.find((r) => r.Name === "Aggregated");
 
