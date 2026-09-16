@@ -27,3 +27,24 @@ input, textarea, select, button {
   outline: 2px solid #2DD4BF;
   outline-offset: 2px;
 }
+
+/* Roomier scrollbar for the edge-case list (colors mirror theme.js) */
+.case-list {
+  scrollbar-width: auto;
+  scrollbar-color: #2A313C #161B22;
+}
+.case-list::-webkit-scrollbar {
+  width: 12px;
+}
+.case-list::-webkit-scrollbar-track {
+  background: #161B22;
+  border-radius: 6px;
+}
+.case-list::-webkit-scrollbar-thumb {
+  background: #2A313C;
+  border-radius: 6px;
+  border: 2px solid #161B22;
+}
+.case-list::-webkit-scrollbar-thumb:hover {
+  background: #8B98A5;
+}

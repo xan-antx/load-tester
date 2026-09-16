@@ -29,6 +29,9 @@ export default function App() {
   const [testDuration, setTestDuration] = useState(10);
 
   const [jobId, setJobId] = useState(null);
+  const [runStartedAt, setRunStartedAt] = useState(null);
+  const [runDuration, setRunDuration] = useState(null);
+  const [elapsedSec, setElapsedSec] = useState(0);
   const [jobStatus, setJobStatus] = useState(null);
   const [jobResult, setJobResult] = useState(null);
   const [showRawJob, setShowRawJob] = useState(false);
@@ -46,6 +49,17 @@ export default function App() {
   useEffect(() => {
     refreshJobHistory();
   }, []);
+
+  // Elapsed-time ticker for the in-flight run; purely cosmetic, the actual
+  // completion signal still comes from pollStatus().
+  useEffect(() => {
+    if (!runStartedAt || !["queued", "running"].includes(jobStatus)) return;
+    const timer = setInterval(
+      () => setElapsedSec(Math.floor((Date.now() - runStartedAt) / 1000)),
+      500
+    );
+    return () => clearInterval(timer);
+  }, [runStartedAt, jobStatus]);
 
   async function refreshJobHistory() {
     try {
@@ -124,6 +138,25 @@ export default function App() {
     setSelected((prev) => ({ ...prev, [label]: !prev[label] }));
   }
 
+  function setAllCases(value) {
+    const next = {};
+    cases.forEach((c) => (next[c.label] = value));
+    setSelected(next);
+  }
+
+  function toggleCategory(category) {
+    const inCategory = cases.filter((c) => c.category === category);
+    const allOn = inCategory.every((c) => selected[c.label]);
+    setSelected((prev) => {
+      const next = { ...prev };
+      inCategory.forEach((c) => (next[c.label] = !allOn));
+      return next;
+    });
+  }
+
+  const selectedCount = cases.filter((c) => selected[c.label]).length;
+  const caseCategories = [...new Set(cases.map((c) => c.category))];
+
   async function confirmAndStart() {
     setError(null);
     const selectedLabels = Object.keys(selected).filter((l) => selected[l]);
@@ -162,6 +195,9 @@ export default function App() {
 
     setWebsitePathsUsed(null);
     setJobId(startData.job_id);
+    setRunStartedAt(Date.now());
+    setRunDuration(testDuration);
+    setElapsedSec(0);
     setJobStatus("queued");
     setJobResult(null);
     pollStatus(startData.job_id);
@@ -190,6 +226,9 @@ export default function App() {
 
       setWebsitePathsUsed(data.paths_used || []);
       setJobId(data.job_id);
+      setRunStartedAt(Date.now());
+      setRunDuration(testDuration);
+      setElapsedSec(0);
       setJobStatus("queued");
       setJobResult(null);
       pollStatus(data.job_id);
@@ -234,6 +273,17 @@ export default function App() {
     setCompareResult(data);
   }
 
+  const bulkBtnStyle = {
+    padding: "4px 12px",
+    fontSize: 12,
+    fontWeight: 600,
+    background: "transparent",
+    color: colors.accent,
+    border: `1px solid ${colors.border}`,
+    borderRadius: radius.sm,
+    cursor: "pointer",
+  };
+
   const statusColors = {
     queued: colors.textMuted,
     running: colors.warning,
@@ -263,16 +313,34 @@ export default function App() {
       {error && (
         <div
           style={{
-            background: "rgba(248, 81, 73, 0.1)",
+            display: "flex",
+            alignItems: "flex-start",
+            gap: space.sm,
+            background: colors.dangerSoft,
             border: `1px solid ${colors.danger}`,
             color: colors.danger,
-            padding: space.md,
-            borderRadius: 8,
+            padding: `${space.sm}px ${space.md}px`,
+            borderRadius: radius.md,
             marginBottom: space.lg,
-            fontSize: 13.5,
+            fontSize: 13,
           }}
         >
-          {error}
+          <span style={{ flex: 1 }}>{error}</span>
+          <button
+            onClick={() => setError(null)}
+            aria-label="Dismiss error"
+            style={{
+              background: "transparent",
+              border: "none",
+              color: colors.danger,
+              cursor: "pointer",
+              fontSize: 15,
+              lineHeight: 1,
+              padding: 0,
+            }}
+          >
+            ×
+          </button>
         </div>
       )}
 
@@ -333,7 +401,55 @@ export default function App() {
         <Section title="3. Select edge cases">
           <div
             style={{
-              maxHeight: 300,
+              display: "flex",
+              alignItems: "center",
+              flexWrap: "wrap",
+              gap: space.sm,
+              marginBottom: space.sm,
+            }}
+          >
+            <button onClick={() => setAllCases(true)} style={bulkBtnStyle}>
+              Select all
+            </button>
+            <button onClick={() => setAllCases(false)} style={bulkBtnStyle}>
+              Select none
+            </button>
+            <span style={{ marginLeft: "auto", fontSize: 12.5, color: colors.textMuted, fontFamily: font.mono }}>
+              {selectedCount} of {cases.length} selected
+            </span>
+          </div>
+
+          <div style={{ display: "flex", flexWrap: "wrap", gap: space.xs, marginBottom: space.sm }}>
+            {caseCategories.map((cat) => {
+              const inCategory = cases.filter((c) => c.category === cat);
+              const onCount = inCategory.filter((c) => selected[c.label]).length;
+              const allOn = onCount === inCategory.length;
+              return (
+                <button
+                  key={cat}
+                  onClick={() => toggleCategory(cat)}
+                  title={allOn ? `Deselect all ${cat} cases` : `Select all ${cat} cases`}
+                  style={{
+                    padding: "3px 10px",
+                    fontSize: 11.5,
+                    fontFamily: font.mono,
+                    borderRadius: radius.pill,
+                    cursor: "pointer",
+                    background: allOn ? colors.accentSoft : "transparent",
+                    color: allOn ? colors.accent : colors.textMuted,
+                    border: `1px solid ${allOn ? colors.accent : colors.border}`,
+                  }}
+                >
+                  {cat} {onCount}/{inCategory.length}
+                </button>
+              );
+            })}
+          </div>
+
+          <div
+            className="case-list"
+            style={{
+              maxHeight: 360,
               overflowY: "auto",
               border: `1px solid ${colors.border}`,
               borderRadius: 8,
@@ -402,6 +518,34 @@ export default function App() {
               </span>
             </span>
           </div>
+          {["queued", "running"].includes(jobStatus) && runDuration != null && (
+            <div style={{ marginBottom: space.md }}>
+              <div
+                style={{
+                  height: 6,
+                  background: colors.track,
+                  borderRadius: radius.pill,
+                  overflow: "hidden",
+                  marginBottom: space.xs,
+                }}
+              >
+                <div
+                  style={{
+                    width: `${Math.min((elapsedSec / runDuration) * 100, 100)}%`,
+                    height: "100%",
+                    background: colors.accent,
+                    borderRadius: radius.pill,
+                    transition: "width 0.5s linear",
+                  }}
+                />
+              </div>
+              <div style={{ fontSize: 12, color: colors.textMuted, fontFamily: font.mono }}>
+                {elapsedSec}s elapsed · ~{runDuration}s configured (estimate — includes ramp-up
+                and teardown)
+              </div>
+            </div>
+          )}
+
           {websitePathsUsed && (
             <p style={{ fontSize: 12.5, color: colors.textMuted, fontFamily: font.mono }}>
               Pages tested: {websitePathsUsed.join(", ")}
@@ -418,12 +562,8 @@ export default function App() {
         </Section>
       )}
 
-      <Section title="5. Compare past runs">
-        {jobHistory.length === 0 ? (
-          <p style={{ color: colors.textMuted, fontSize: 13.5 }}>
-            No completed runs yet — run a load test above first.
-          </p>
-        ) : (
+      {jobHistory.length > 0 && (
+        <Section title="5. Compare past runs">
           <>
             <div style={{ display: "flex", gap: space.sm, marginBottom: space.md }}>
               <select
@@ -461,8 +601,8 @@ export default function App() {
 
             {compareResult && <CompareView jobA={compareResult.job_a} jobB={compareResult.job_b} />}
           </>
-        )}
-      </Section>
+        </Section>
+      )}
     </div>
   );
 }

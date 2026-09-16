@@ -87,6 +87,38 @@ function FailBar({ rate }) {
   );
 }
 
+// The stats CSV only carries the case label, so the category is derived
+// from the label prefixes used by the backend's edge-case generator.
+const CATEGORY_ORDER = [
+  "missing_field",
+  "null_value",
+  "type_mismatch",
+  "boundary_value",
+  "known_attack",
+  "other",
+];
+
+export const CATEGORY_LABELS = {
+  missing_field: "Missing Field",
+  null_value: "Null Value",
+  type_mismatch: "Type Mismatch",
+  boundary_value: "Boundary Value",
+  known_attack: "Known Attack",
+  other: "Other",
+};
+
+function categoryOf(name) {
+  if (!name) return "other";
+  if (name.startsWith("missing_")) return "missing_field";
+  if (name.startsWith("null_")) return "null_value";
+  if (name.startsWith("wrong_type_")) return "type_mismatch";
+  if (/^(empty_string_|very_long_string_|very_large_|negative_|zero_)/.test(name)) {
+    return "boundary_value";
+  }
+  if (/^(sqli_|xss_)/.test(name)) return "known_attack";
+  return "other";
+}
+
 const COLUMNS = [
   { key: "name", label: "Edge Case" },
   { key: "requests", label: "Requests" },
@@ -113,6 +145,8 @@ function rowValue(r, key) {
 
 export default function JobResultSummary({ data, showRaw, onToggleRaw }) {
   const [sort, setSort] = useState({ key: "rate", dir: "desc" });
+  const [view, setView] = useState("flat");
+  const [collapsed, setCollapsed] = useState({});
 
   const rows = parseStatsCsv(data.aggregated_stats_csv || data.stats_csv);
   const nonAggregated = rows.filter((r) => r.Name && r.Name !== "Aggregated");
@@ -134,6 +168,57 @@ export default function JobResultSummary({ data, showRaw, onToggleRaw }) {
   }
 
   const agg = aggregated ? rowStats(aggregated) : null;
+
+  const groups = CATEGORY_ORDER.map((cat) => {
+    const catRows = sorted.filter((r) => categoryOf(r.Name) === cat);
+    const requests = catRows.reduce((sum, r) => sum + rowStats(r).requests, 0);
+    const failures = catRows.reduce((sum, r) => sum + rowStats(r).failures, 0);
+    return {
+      cat,
+      rows: catRows,
+      requests,
+      failures,
+      rate: requests > 0 ? (failures / requests) * 100 : 0,
+    };
+  }).filter((g) => g.rows.length > 0);
+
+  const viewToggleBtn = (mode, label) => (
+    <button
+      key={mode}
+      onClick={() => setView(mode)}
+      style={{
+        padding: "4px 12px",
+        fontSize: 12,
+        fontWeight: 600,
+        border: "none",
+        cursor: "pointer",
+        borderRadius: radius.sm,
+        background: view === mode ? colors.accentSoft : "transparent",
+        color: view === mode ? colors.accent : colors.textMuted,
+      }}
+    >
+      {label}
+    </button>
+  );
+
+  const resultRow = (r, i) => {
+    const s = rowStats(r);
+    return (
+      <tr key={r.Name || i} style={{ borderBottom: `1px solid ${colors.borderSubtle}` }}>
+        <td style={tdStyle}>{r.Name}</td>
+        <td style={tdStyle}>{s.requests}</td>
+        <td style={{ ...tdStyle, color: s.failures > 0 ? colors.danger : colors.success, fontWeight: 600 }}>
+          {s.failures}
+        </td>
+        <td style={tdStyle}>
+          <FailBar rate={s.rate} />
+        </td>
+        <td style={tdStyle}>{Math.round(Number(r["Average Response Time"]))}</td>
+        <td style={tdStyle}>{Math.round(Number(r["Min Response Time"]))}</td>
+        <td style={tdStyle}>{Math.round(Number(r["Max Response Time"]))}</td>
+      </tr>
+    );
+  };
 
   return (
     <div style={{ marginTop: space.md }}>
@@ -173,6 +258,13 @@ export default function JobResultSummary({ data, showRaw, onToggleRaw }) {
         </div>
       )}
 
+      {nonAggregated.length > 0 && (
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 2, marginBottom: space.xs }}>
+          {viewToggleBtn("flat", "Flat")}
+          {viewToggleBtn("grouped", "Grouped")}
+        </div>
+      )}
+
       {rows.length > 0 && (
         <div style={{ overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
@@ -194,30 +286,43 @@ export default function JobResultSummary({ data, showRaw, onToggleRaw }) {
               </tr>
             </thead>
             <tbody>
-              {sorted.map((r, i) => {
-                const s = rowStats(r);
-                return (
-                  <tr key={i} style={{ borderBottom: `1px solid ${colors.borderSubtle}` }}>
-                    <td style={tdStyle}>{r.Name}</td>
-                    <td style={tdStyle}>{s.requests}</td>
-                    <td
+              {view === "flat" && sorted.map(resultRow)}
+              {view === "grouped" &&
+                groups.map((g) => {
+                  const isOpen = !collapsed[g.cat];
+                  return [
+                    <tr
+                      key={`hdr-${g.cat}`}
+                      onClick={() => setCollapsed((prev) => ({ ...prev, [g.cat]: !prev[g.cat] }))}
                       style={{
-                        ...tdStyle,
-                        color: s.failures > 0 ? colors.danger : colors.success,
-                        fontWeight: 600,
+                        background: colors.surfaceRaised,
+                        borderBottom: `1px solid ${colors.border}`,
+                        cursor: "pointer",
+                        userSelect: "none",
                       }}
+                      title={isOpen ? "Collapse" : "Expand"}
                     >
-                      {s.failures}
-                    </td>
-                    <td style={tdStyle}>
-                      <FailBar rate={s.rate} />
-                    </td>
-                    <td style={tdStyle}>{Math.round(Number(r["Average Response Time"]))}</td>
-                    <td style={tdStyle}>{Math.round(Number(r["Min Response Time"]))}</td>
-                    <td style={tdStyle}>{Math.round(Number(r["Max Response Time"]))}</td>
-                  </tr>
-                );
-              })}
+                      <td style={{ ...tdStyle, fontFamily: font.sans, fontWeight: 600, whiteSpace: "nowrap" }}>
+                        <span style={{ color: colors.accent, marginRight: 6, fontSize: 10 }}>
+                          {isOpen ? "▾" : "▸"}
+                        </span>
+                        {CATEGORY_LABELS[g.cat]}
+                        <span style={{ color: colors.textMuted, fontWeight: 400, marginLeft: 6, fontSize: 12 }}>
+                          ({g.rows.length})
+                        </span>
+                      </td>
+                      <td style={{ ...tdStyle, fontWeight: 600 }}>{g.requests}</td>
+                      <td style={{ ...tdStyle, fontWeight: 600, color: g.failures > 0 ? colors.danger : colors.success }}>
+                        {g.failures}
+                      </td>
+                      <td style={tdStyle}>
+                        <FailBar rate={g.rate} />
+                      </td>
+                      <td style={tdStyle} colSpan={3} />
+                    </tr>,
+                    ...(isOpen ? g.rows.map(resultRow) : []),
+                  ];
+                })}
               {aggregated && agg && (
                 <tr style={{ fontWeight: 700, borderTop: `2px solid ${colors.border}` }}>
                   <td style={tdStyle}>Total</td>

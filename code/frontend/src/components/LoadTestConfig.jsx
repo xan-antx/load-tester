@@ -1,3 +1,6 @@
+import { colors, font, space } from "../theme";
+import { inputStyle as themeInputStyle } from "./Section";
+
 export default function LoadTestConfig({
   users,
   spawnRate,
@@ -7,7 +10,7 @@ export default function LoadTestConfig({
   onDurationChange,
 }) {
   return (
-    <div style={{ display: "flex", gap: 10, marginTop: 12, marginBottom: 8 }}>
+    <div style={{ display: "flex", gap: space.sm, marginTop: space.md, marginBottom: space.sm }}>
       <div style={{ flex: 1 }}>
         <label style={labelStyle}>Users (1-1000)</label>
         <input
@@ -53,12 +56,12 @@ function clamp(value, min, max) {
 const labelStyle = {
   display: "block",
   fontSize: 12,
-  color: "#666",
-  marginBottom: 4,
+  color: colors.textMuted,
+  marginBottom: space.xs,
 };
 
 const inputStyle = {
-  width: "100%",
-  padding: 6,
-  boxSizing: "border-box",
+  ...themeInputStyle,
+  padding: "7px 10px",
+  fontFamily: font.mono,
 };
