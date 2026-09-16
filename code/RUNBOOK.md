@@ -27,14 +27,17 @@ Requires 3 terminals. Same AWS values every time:
 AWS_ACCESS_KEY_ID=<your current key>
 AWS_SECRET_ACCESS_KEY=<your current secret>
 AWS_DEFAULT_REGION=eu-north-1
-SQS_QUEUE_URL=https://sqs.eu-north-1.amazonaws.com/974771261352/load-tester-jobs
+SQS_QUEUE_URL=https://sqs.eu-north-1.amazonaws.com/<AWS_ACCOUNT_ID>/load-tester-jobs
+
+(The real queue URL contains our AWS account ID — don't commit it. Keep it in the
+`SQS_QUEUE_URL` environment variable / a local untracked `.env`.)
 
 **Terminal 1 — Backend (with SQS enabled):**
 cd load_tester
 $env:AWS_ACCESS_KEY_ID="..."
 $env:AWS_SECRET_ACCESS_KEY="..."
 $env:AWS_DEFAULT_REGION="eu-north-1"
-$env:SQS_QUEUE_URL="https://sqs.eu-north-1.amazonaws.com/974771261352/load-tester-jobs"
+$env:SQS_QUEUE_URL="https://sqs.eu-north-1.amazonaws.com/<AWS_ACCOUNT_ID>/load-tester-jobs"
 $env:USE_SQS="true"
 python app.py
 
@@ -43,7 +46,7 @@ cd load_tester
 $env:AWS_ACCESS_KEY_ID="..."
 $env:AWS_SECRET_ACCESS_KEY="..."
 $env:AWS_DEFAULT_REGION="eu-north-1"
-$env:SQS_QUEUE_URL="https://sqs.eu-north-1.amazonaws.com/974771261352/load-tester-jobs"
+$env:SQS_QUEUE_URL="https://sqs.eu-north-1.amazonaws.com/<AWS_ACCOUNT_ID>/load-tester-jobs"
 python worker.py
 Should print: `Worker started. Polling SQS for jobs...`
 

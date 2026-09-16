@@ -1,45 +1,39 @@
-# UCS503P Project Template
+# Elevate Load Tester
 
-This is a project template for UCS503P Project (2026-27
-ODD). 
+UCS503 Software Engineering Project (2026–27 ODD) · TIET Patiala
 
-There are 3 reports in LaTeX format, namely *a*)
-Project Proposal, *b*) Project Report Prototype Stage,
-and *c*) Project Report Final -- each in their
-respective folders.
+A web application that load-tests HTTP targets: analyze a URL, classify it as
+an API or a website, generate edge-case payloads or crawl sitemap paths, run
+an asynchronous Locust-based load test, and compare past runs.
 
-Journals are stacked under the folder `journals`, one
-folder for each team member.  A sample entry has been
-made for example.
+**Team Elevate:** Yash Bharadwaj · Nikhil Khosla · Krish Agrawal
 
-The source code is contained within the folder `code`.
+## Repo layout
 
-The documentation is under folder `docs`.
+| Path | Contents |
+|------|----------|
+| `code/` | Application source — Flask backend, React/Vite frontend, k8s manifests, GitLab CI. See [code/README.md](code/README.md) for setup. |
+| `docs/` | Project documentation (built with mkdocs, published via GitHub Actions). |
+| `journals/` | Per-member project journals, one folder per team member. |
+| `project-report-prototype-stage/` | LaTeX project report (prototype stage). |
+| `assets/` | Shared assets (logos etc.). |
 
-All other aspects of code organisation are left to the
-discretion of the user(s).
-
-
-## Docs
-
-As of now, the `docs` is just an organised collection
-of markdown (`md`) files.  But the build procedure is
-using [`mkdocs`](https://google.com/search?q=mkdocs)
-backend.  As a result, any commit into the `master`
-branch of github repository would result in CI/CD based
-build and deployment of the documentation including the
-journals.
-
-For a local DEV-version of the docs for viewing and
-testing, install the local env and issue the following
-command:
+## Quick start
 
 ``` shell
-make docs
+cd code
+pip install -r requirements.txt
+python app.py
 ```
 
-### Local `env` for `docs`
+Then in a second terminal:
 
 ``` shell
-
+cd code/frontend
+npm install
+npm run dev
 ```
+
+Full run instructions (including the optional SQS queue mode) are in
+[code/RUNBOOK.md](code/RUNBOOK.md), and the documentation lives in
+[docs/index.md](docs/index.md).
