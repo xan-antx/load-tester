@@ -27,8 +27,11 @@ spec:
           env:
             - name: DB_PATH
               value: "/data/load_tests.db"
+            # Queue mode requires k8s/worker-deployment.yaml to be applied and a
+            # worker image (Dockerfile.worker) to be built/pushed — a later phase.
+            # Until then jobs run in-process (background threads), same as local mode.
             - name: USE_SQS
-              value: "true"
+              value: "false"
           readinessProbe:
             httpGet:
               path: /health
