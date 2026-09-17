@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { btnStyle, preStyle, thStyle, tdStyle } from "./Section";
 import { parseStatsCsv } from "../utils/parseStatsCsv";
+import { parseFailuresCsv } from "../utils/parseFailuresCsv";
 import { colors, font, space, radius } from "../theme";
 
 function rowStats(r) {
@@ -147,6 +148,7 @@ export default function JobResultSummary({ data, showRaw, onToggleRaw }) {
   const [sort, setSort] = useState({ key: "rate", dir: "desc" });
   const [view, setView] = useState("flat");
   const [collapsed, setCollapsed] = useState({});
+  const [showFailureReasons, setShowFailureReasons] = useState(false);
 
   const rows = parseStatsCsv(data.aggregated_stats_csv || data.stats_csv);
   const nonAggregated = rows.filter((r) => r.Name && r.Name !== "Aggregated");
@@ -168,6 +170,20 @@ export default function JobResultSummary({ data, showRaw, onToggleRaw }) {
   }
 
   const agg = aggregated ? rowStats(aggregated) : null;
+
+  // Distinct error texts with total occurrences and the edge cases that hit
+  // them; empty (renders nothing) when the run produced no failures file.
+  const failureRows = parseFailuresCsv(data.aggregated_failures_csv || data.failures_csv);
+  const errorGroups = Object.values(
+    failureRows.reduce((acc, r) => {
+      const error = r.Error || "(no error text)";
+      const count = Number(r.Occurrences) || 0;
+      if (!acc[error]) acc[error] = { error, total: 0, cases: [] };
+      acc[error].total += count;
+      acc[error].cases.push({ name: r.Name, count });
+      return acc;
+    }, {})
+  ).sort((a, b) => b.total - a.total);
 
   const groups = CATEGORY_ORDER.map((cat) => {
     const catRows = sorted.filter((r) => categoryOf(r.Name) === cat);
@@ -340,6 +356,106 @@ export default function JobResultSummary({ data, showRaw, onToggleRaw }) {
               )}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {errorGroups.length > 0 && (
+        <div
+          style={{
+            marginTop: space.md,
+            border: `1px solid ${colors.borderSubtle}`,
+            borderRadius: radius.md,
+            background: colors.surfaceRaised,
+          }}
+        >
+          <button
+            onClick={() => setShowFailureReasons((v) => !v)}
+            style={{
+              width: "100%",
+              display: "flex",
+              alignItems: "center",
+              gap: space.sm,
+              padding: `${space.sm}px ${space.md}px`,
+              background: "transparent",
+              border: "none",
+              cursor: "pointer",
+              color: colors.text,
+              fontSize: 13,
+              fontWeight: 600,
+              textAlign: "left",
+            }}
+          >
+            <span style={{ color: colors.accent, fontSize: 10 }}>
+              {showFailureReasons ? "▾" : "▸"}
+            </span>
+            Why did these fail?
+            <span style={{ color: colors.textMuted, fontWeight: 400 }}>
+              {errorGroups.length} distinct error{errorGroups.length === 1 ? "" : "s"}
+            </span>
+          </button>
+
+          {showFailureReasons && (
+            <div style={{ padding: `0 ${space.md}px ${space.md}px` }}>
+              {errorGroups.map((g) => (
+                <div
+                  key={g.error}
+                  style={{
+                    borderTop: `1px solid ${colors.borderSubtle}`,
+                    padding: `${space.sm}px 0`,
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "baseline", gap: space.sm }}>
+                    <span
+                      style={{
+                        fontFamily: font.mono,
+                        fontSize: 12.5,
+                        color: colors.danger,
+                        wordBreak: "break-word",
+                        flex: 1,
+                      }}
+                    >
+                      {g.error}
+                    </span>
+                    <span
+                      style={{
+                        fontFamily: font.mono,
+                        fontSize: 12,
+                        color: colors.textMuted,
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      ×{g.total}
+                    </span>
+                  </div>
+                  <div
+                    style={{
+                      display: "flex",
+                      flexWrap: "wrap",
+                      gap: space.xs,
+                      marginTop: space.xs,
+                    }}
+                  >
+                    {g.cases.map((c) => (
+                      <span
+                        key={c.name}
+                        style={{
+                          fontFamily: font.mono,
+                          fontSize: 11,
+                          color: colors.textMuted,
+                          background: colors.bg,
+                          border: `1px solid ${colors.borderSubtle}`,
+                          borderRadius: radius.pill,
+                          padding: "1px 8px",
+                        }}
+                      >
+                        {c.name} ×{c.count}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 

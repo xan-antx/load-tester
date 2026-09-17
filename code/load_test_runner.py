@@ -11,7 +11,7 @@ from job_store import (
     create_job_group, update_job_group, get_job_group, list_child_jobs,
 )
 from sqs_client import send_job_message
-from stats_aggregator import merge_stats_csvs
+from stats_aggregator import merge_stats_csvs, merge_failures_csvs
 
 RESULTS_DIR = "load_test_results"
 os.makedirs(RESULTS_DIR, exist_ok=True)
@@ -89,12 +89,20 @@ def _run_locust(job_id, locustfile_path, env, target_url, users, spawn_rate, dur
             with open(stats_file) as f:
                 stats_csv = f.read()
 
+        # A run with zero failures produces no failures file.
+        failures_csv = None
+        failures_file = f"{csv_prefix}_failures.csv"
+        if os.path.exists(failures_file):
+            with open(failures_file) as f:
+                failures_csv = f.read()
+
         update_job(
             job_id,
             status="completed",
             stdout=proc.stdout[-3000:],
             stderr=proc.stderr[-3000:],
             stats_csv=stats_csv,
+            failures_csv=failures_csv,
         )
     except subprocess.TimeoutExpired:
         update_job(job_id, status="timeout")
@@ -221,9 +229,14 @@ def get_group_status(group_id):
     if overall == "completed" and not group.get("aggregated_stats_csv"):
         stats_list = [c["stats_csv"] for c in children if c.get("stats_csv")]
         merged = merge_stats_csvs(stats_list) if stats_list else None
-        update_job_group(group_id, status="completed", aggregated_stats_csv=merged)
+        failures_list = [c["failures_csv"] for c in children if c.get("failures_csv")]
+        merged_failures = merge_failures_csvs(failures_list) if failures_list else None
+        update_job_group(group_id, status="completed", aggregated_stats_csv=merged,
+                         aggregated_failures_csv=merged_failures)
         result["aggregated_stats_csv"] = merged
+        result["aggregated_failures_csv"] = merged_failures
     elif overall == "completed":
         result["aggregated_stats_csv"] = group.get("aggregated_stats_csv")
+        result["aggregated_failures_csv"] = group.get("aggregated_failures_csv")
 
     return result

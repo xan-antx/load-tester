@@ -10,6 +10,8 @@ CSV_HEADER = [
 
 NUMERIC_FIELDS = CSV_HEADER[2:]
 
+FAILURES_CSV_HEADER = ["Method", "Name", "Error", "Occurrences"]
+
 
 def _parse_csv(csv_text):
     if not csv_text:
@@ -21,6 +23,45 @@ def _parse_csv(csv_text):
             continue
         rows.append(row)
     return rows
+
+
+def merge_failures_csvs(csv_list):
+    """
+    Merges multiple Locust --csv failures outputs (one per child job) into a
+    single combined report by summing Occurrences grouped on (Name, Error).
+    Returns None when the merged result contains no failure rows.
+    """
+    grouped = {}
+    for csv_text in csv_list:
+        if not csv_text:
+            continue
+        reader = csv.DictReader(io.StringIO(csv_text.strip()))
+        for row in reader:
+            if not row.get("Name"):
+                continue
+            key = (row["Name"], row.get("Error") or "")
+            if key not in grouped:
+                grouped[key] = {"Method": row.get("Method") or "", "Occurrences": 0}
+            try:
+                occurrences = int(float(row.get("Occurrences") or 0))
+            except ValueError:
+                occurrences = 0
+            grouped[key]["Occurrences"] += occurrences
+
+    if not grouped:
+        return None
+
+    buf = io.StringIO()
+    writer = csv.DictWriter(buf, fieldnames=FAILURES_CSV_HEADER)
+    writer.writeheader()
+    for (name, error), g in grouped.items():
+        writer.writerow({
+            "Method": g["Method"],
+            "Name": name,
+            "Error": error,
+            "Occurrences": g["Occurrences"],
+        })
+    return buf.getvalue()
 
 
 def merge_stats_csvs(csv_list):

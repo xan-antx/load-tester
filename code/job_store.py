@@ -30,6 +30,7 @@ def init_db():
                 duration_seconds INTEGER,
                 status TEXT,
                 stats_csv TEXT,
+                failures_csv TEXT,
                 stdout TEXT,
                 stderr TEXT,
                 error TEXT,
@@ -49,6 +50,7 @@ def init_db():
                 child_count INTEGER,
                 status TEXT,
                 aggregated_stats_csv TEXT,
+                aggregated_failures_csv TEXT,
                 error TEXT,
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP,
                 completed_at TEXT
@@ -58,6 +60,14 @@ def init_db():
         # from a database created before this feature was added.
         try:
             conn.execute("ALTER TABLE jobs ADD COLUMN group_id TEXT")
+        except sqlite3.OperationalError:
+            pass
+        try:
+            conn.execute("ALTER TABLE jobs ADD COLUMN failures_csv TEXT")
+        except sqlite3.OperationalError:
+            pass
+        try:
+            conn.execute("ALTER TABLE job_groups ADD COLUMN aggregated_failures_csv TEXT")
         except sqlite3.OperationalError:
             pass
 
