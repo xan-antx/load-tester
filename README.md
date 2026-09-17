@@ -6,7 +6,7 @@ A web application that load-tests HTTP targets: analyze a URL, classify it as
 an API or a website, generate edge-case payloads or crawl sitemap paths, run
 an asynchronous Locust-based load test, and compare past runs.
 
-**Team Elevate:** Yash Bharadwaj · Nikhil Khosla · Krish Agrawal
+**Team Elevate:** Vivek Pandey · Anant Agrawal · Piyush Singh
 
 ## Repo layout
 
