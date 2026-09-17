@@ -1,10 +1,10 @@
 import { btnStyle } from "./Section";
 
-export default function WebsiteLoadTestSection({ sitemapRaw, onStart, starting }) {
+export default function WebsiteLoadTestSection({ sitemapRaw, onStart, starting, testRunning }) {
   return (
     <div style={{ marginTop: 12 }}>
-      <button onClick={onStart} style={btnStyle} disabled={starting}>
-        {starting ? "Starting..." : "Run Website Load Test"}
+      <button onClick={onStart} style={btnStyle} disabled={starting || testRunning}>
+        {testRunning ? "Test in progress…" : starting ? "Starting..." : "Run Website Load Test"}
       </button>
       <p style={{ color: "#666", fontSize: 13, marginTop: 6 }}>
         {sitemapRaw

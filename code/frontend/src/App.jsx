@@ -189,6 +189,7 @@ export default function App() {
   const caseCategories = [...new Set(cases.map((c) => c.category))];
 
   async function confirmAndStart() {
+    if (testRunning) return;
     setError(null);
     const selectedLabels = Object.keys(selected).filter((l) => selected[l]);
     if (selectedLabels.length === 0) {
@@ -235,6 +236,7 @@ export default function App() {
   }
 
   async function startWebsiteLoadTest() {
+    if (testRunning) return;
     setError(null);
     setStartingWebsiteTest(true);
     try {
@@ -303,6 +305,10 @@ export default function App() {
     }
     setCompareResult(data);
   }
+
+  // Guards against starting a second job while one is polling: two concurrent
+  // pollStatus loops would both write jobStatus/jobResult and clobber each other.
+  const testRunning = jobStatus === "queued" || jobStatus === "running";
 
   const bulkBtnStyle = {
     padding: "4px 12px",
@@ -420,6 +426,7 @@ export default function App() {
               sitemapRaw={sitemapRaw}
               onStart={startWebsiteLoadTest}
               starting={startingWebsiteTest}
+              testRunning={testRunning}
             />
           </>
         )}
@@ -528,8 +535,8 @@ export default function App() {
             onDurationChange={setTestDuration}
           />
 
-          <button onClick={confirmAndStart} style={btnStyle}>
-            Confirm selection and start load test
+          <button onClick={confirmAndStart} style={btnStyle} disabled={testRunning}>
+            {testRunning ? "Test in progress…" : "Confirm selection and start load test"}
           </button>
         </Section>
       )}
