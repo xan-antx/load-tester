@@ -11,7 +11,7 @@ from job_store import (
     create_job_group, update_job_group, get_job_group, list_child_jobs,
 )
 from sqs_client import send_job_message
-from stats_aggregator import merge_stats_csvs, merge_failures_csvs
+from stats_aggregator import merge_stats_csvs, merge_failures_csvs, merge_history_csvs
 
 RESULTS_DIR = "load_test_results"
 os.makedirs(RESULTS_DIR, exist_ok=True)
@@ -96,6 +96,13 @@ def _run_locust(job_id, locustfile_path, env, target_url, users, spawn_rate, dur
             with open(failures_file) as f:
                 failures_csv = f.read()
 
+        # One "Aggregated" row per second of the run, used for the timeline.
+        history_csv = None
+        history_file = f"{csv_prefix}_stats_history.csv"
+        if os.path.exists(history_file):
+            with open(history_file) as f:
+                history_csv = f.read()
+
         update_job(
             job_id,
             status="completed",
@@ -103,6 +110,7 @@ def _run_locust(job_id, locustfile_path, env, target_url, users, spawn_rate, dur
             stderr=proc.stderr[-3000:],
             stats_csv=stats_csv,
             failures_csv=failures_csv,
+            history_csv=history_csv,
         )
     except subprocess.TimeoutExpired:
         update_job(job_id, status="timeout")
@@ -231,12 +239,17 @@ def get_group_status(group_id):
         merged = merge_stats_csvs(stats_list) if stats_list else None
         failures_list = [c["failures_csv"] for c in children if c.get("failures_csv")]
         merged_failures = merge_failures_csvs(failures_list) if failures_list else None
+        history_list = [c["history_csv"] for c in children if c.get("history_csv")]
+        merged_history = merge_history_csvs(history_list) if history_list else None
         update_job_group(group_id, status="completed", aggregated_stats_csv=merged,
-                         aggregated_failures_csv=merged_failures)
+                         aggregated_failures_csv=merged_failures,
+                         aggregated_history_csv=merged_history)
         result["aggregated_stats_csv"] = merged
         result["aggregated_failures_csv"] = merged_failures
+        result["aggregated_history_csv"] = merged_history
     elif overall == "completed":
         result["aggregated_stats_csv"] = group.get("aggregated_stats_csv")
         result["aggregated_failures_csv"] = group.get("aggregated_failures_csv")
+        result["aggregated_history_csv"] = group.get("aggregated_history_csv")
 
     return result

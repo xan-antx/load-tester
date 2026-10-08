@@ -43,7 +43,13 @@ Manual smoke-check scripts (require the backend running) live in
 ## Layout
 
 - `app.py` — Flask API (analyze, edge cases, load test jobs, compare)
-- `analysis/` — URL sanity check, API/website type detection, edge-case generation
+- `analysis/` — URL sanity check, API/website type detection, edge-case generation,
+  plus pure helpers: `failure_summary.py` (failures by status code),
+  `case_comparison.py` (per-case comparison across runs), `custom_cases.py`
+  (custom case validation), `regressions.py` (baseline comparison)
+- `tests/` — pytest unit tests (no network, no running server); `conftest.py` puts
+  `code/` on the import path
+- `scripts/mock_target.py` — local mock login API for repeatable tests
 - `load_test_runner.py` — runs Locust tests in background threads; splits runs >50 users into child jobs
 - `stats_aggregator.py` — merges child-job stats CSVs
 - `job_store.py` — SQLite persistence for jobs and job groups

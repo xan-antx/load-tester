@@ -64,6 +64,85 @@ def merge_failures_csvs(csv_list):
     return buf.getvalue()
 
 
+HISTORY_CSV_HEADER = [
+    "Timestamp", "User Count", "Type", "Name", "Requests/s", "Failures/s",
+    "95%", "Total Average Response Time",
+]
+
+
+def _to_float(value):
+    """Locust writes "N/A" when a value has no data yet."""
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _weighted(values_and_weights):
+    """Average of values weighted by their weights; plain average if every
+    weight is 0; None if there are no values."""
+    pairs = [(v, w) for v, w in values_and_weights if v is not None]
+    if not pairs:
+        return None
+    total_weight = sum(w for _, w in pairs)
+    if total_weight > 0:
+        return sum(v * w for v, w in pairs) / total_weight
+    return sum(v for v, _ in pairs) / len(pairs)
+
+
+def merge_history_csvs(csv_list):
+    """
+    Merges Locust's per-second history files (one per child job) into one
+    timeline. Only the "Aggregated" rows are used. Rows from different
+    children with the same Timestamp (a whole second) are combined:
+    User Count, Requests/s and Failures/s are summed; the average response
+    time and p95 are averaged, weighted by each child's Requests/s.
+    The output keeps Locust's column names, so it reads like a single run's
+    history file. Returns None if there is nothing to merge.
+    """
+    seconds = {}
+    for csv_text in csv_list:
+        if not csv_text:
+            continue
+        for row in csv.DictReader(io.StringIO(csv_text.strip())):
+            if row.get("Name") != "Aggregated":
+                continue
+            timestamp = _to_float(row.get("Timestamp"))
+            if timestamp is None:
+                continue
+            bucket = seconds.setdefault(int(timestamp), {
+                "users": 0.0, "rps": 0.0, "fps": 0.0, "avg": [], "p95": [],
+            })
+            rps = _to_float(row.get("Requests/s")) or 0.0
+            bucket["users"] += _to_float(row.get("User Count")) or 0.0
+            bucket["rps"] += rps
+            bucket["fps"] += _to_float(row.get("Failures/s")) or 0.0
+            bucket["avg"].append((_to_float(row.get("Total Average Response Time")), rps))
+            bucket["p95"].append((_to_float(row.get("95%")), rps))
+
+    if not seconds:
+        return None
+
+    buf = io.StringIO()
+    writer = csv.DictWriter(buf, fieldnames=HISTORY_CSV_HEADER)
+    writer.writeheader()
+    for timestamp in sorted(seconds):
+        b = seconds[timestamp]
+        avg = _weighted(b["avg"])
+        p95 = _weighted(b["p95"])
+        writer.writerow({
+            "Timestamp": timestamp,
+            "User Count": int(b["users"]),
+            "Type": "",
+            "Name": "Aggregated",
+            "Requests/s": round(b["rps"], 4),
+            "Failures/s": round(b["fps"], 4),
+            "95%": round(p95, 2) if p95 is not None else "N/A",
+            "Total Average Response Time": round(avg, 2) if avg is not None else "N/A",
+        })
+    return buf.getvalue()
+
+
 def merge_stats_csvs(csv_list):
     """
     Merges multiple Locust --csv stats outputs (one per child job) into a
@@ -82,6 +161,11 @@ def merge_stats_csvs(csv_list):
     for csv_text in csv_list:
         for row in _parse_csv(csv_text):
             name = row["Name"]
+            # Each child's own "Aggregated" total is skipped: the merged total
+            # is rebuilt from the per-case rows below. Merging it like a normal
+            # row would emit a second, double-counted "Aggregated" row.
+            if name == "Aggregated":
+                continue
             row_type = row.get("Type", row_type)
             count = float(row.get("Request Count") or 0)
             if name not in grouped:

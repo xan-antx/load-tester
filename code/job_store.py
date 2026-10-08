@@ -31,6 +31,7 @@ def init_db():
                 status TEXT,
                 stats_csv TEXT,
                 failures_csv TEXT,
+                history_csv TEXT,
                 stdout TEXT,
                 stderr TEXT,
                 error TEXT,
@@ -51,6 +52,7 @@ def init_db():
                 status TEXT,
                 aggregated_stats_csv TEXT,
                 aggregated_failures_csv TEXT,
+                aggregated_history_csv TEXT,
                 error TEXT,
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP,
                 completed_at TEXT
@@ -68,6 +70,23 @@ def init_db():
             pass
         try:
             conn.execute("ALTER TABLE job_groups ADD COLUMN aggregated_failures_csv TEXT")
+        except sqlite3.OperationalError:
+            pass
+        try:
+            conn.execute("ALTER TABLE jobs ADD COLUMN history_csv TEXT")
+        except sqlite3.OperationalError:
+            pass
+        try:
+            conn.execute("ALTER TABLE job_groups ADD COLUMN aggregated_history_csv TEXT")
+        except sqlite3.OperationalError:
+            pass
+        # 1 marks the run chosen as the baseline for its target_url.
+        try:
+            conn.execute("ALTER TABLE jobs ADD COLUMN is_baseline INTEGER DEFAULT 0")
+        except sqlite3.OperationalError:
+            pass
+        try:
+            conn.execute("ALTER TABLE job_groups ADD COLUMN is_baseline INTEGER DEFAULT 0")
         except sqlite3.OperationalError:
             pass
 
@@ -101,7 +120,7 @@ def get_job(job_id):
 def list_jobs(limit=50):
     with _get_conn() as conn:
         rows = conn.execute(
-            "SELECT job_id, target_url, users, status, created_at, completed_at "
+            "SELECT job_id, target_url, users, status, created_at, completed_at, is_baseline "
             "FROM jobs WHERE group_id IS NULL ORDER BY created_at DESC LIMIT ?",
             (limit,),
         ).fetchall()
@@ -146,8 +165,29 @@ def list_child_jobs(group_id):
 def list_job_groups(limit=50):
     with _get_conn() as conn:
         rows = conn.execute(
-            "SELECT group_id, target_url, users, status, created_at, completed_at "
+            "SELECT group_id, target_url, users, status, created_at, completed_at, is_baseline "
             "FROM job_groups ORDER BY created_at DESC LIMIT ?",
             (limit,),
         ).fetchall()
         return [dict(r) for r in rows]
+
+
+def set_baseline(run_id, target_url):
+    """Makes run_id (a job id or a group id) the only baseline for target_url."""
+    with _lock, _get_conn() as conn:
+        conn.execute("UPDATE jobs SET is_baseline = 0 WHERE target_url = ?", (target_url,))
+        conn.execute("UPDATE job_groups SET is_baseline = 0 WHERE target_url = ?", (target_url,))
+        conn.execute("UPDATE jobs SET is_baseline = 1 WHERE job_id = ?", (run_id,))
+        conn.execute("UPDATE job_groups SET is_baseline = 1 WHERE group_id = ?", (run_id,))
+
+
+def get_baseline_id(target_url):
+    """Returns the baseline run id for target_url, or None."""
+    with _get_conn() as conn:
+        row = conn.execute(
+            "SELECT group_id AS id FROM job_groups WHERE target_url = ? AND is_baseline = 1 "
+            "UNION ALL "
+            "SELECT job_id AS id FROM jobs WHERE target_url = ? AND is_baseline = 1 LIMIT 1",
+            (target_url, target_url),
+        ).fetchone()
+        return row["id"] if row else None

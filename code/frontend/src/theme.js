@@ -11,11 +11,18 @@ export const colors = {
   success: "#3FB950",
   warning: "#D29922",
   danger: "#F85149",
+  info: "#58A6FF",
+  // Chart series (dark-surface steps, validated for colour-blind separation)
+  series1: "#3987e5",
+  series2: "#d95926",
+  grid: "#232B36",
   // translucent fills for badges, banners, and bar tracks
   accentSoft: "rgba(45, 212, 191, 0.12)",
   successSoft: "rgba(63, 185, 80, 0.12)",
   warningSoft: "rgba(210, 153, 34, 0.14)",
   dangerSoft: "rgba(248, 81, 73, 0.12)",
+  infoSoft: "rgba(88, 166, 255, 0.12)",
+  mutedSoft: "rgba(139, 152, 165, 0.12)",
   track: "#232B36",
 };
 

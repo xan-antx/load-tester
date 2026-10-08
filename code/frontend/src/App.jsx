@@ -5,7 +5,9 @@ import JobResultSummary from "./components/JobResultSummary";
 import CompareView from "./components/CompareView";
 import WebsiteLoadTestSection from "./components/WebsiteLoadTestSection";
 import LoadTestConfig from "./components/LoadTestConfig";
+import RunActions from "./components/RunActions";
 import { colors, font, space, radius } from "./theme";
+import { formatTime } from "./utils/formatTime";
 
 const BASE = import.meta.env.VITE_API_BASE || "http://localhost:5000";
 
@@ -54,6 +56,12 @@ export default function App() {
   const [sampleInput, setSampleInput] = useState(null);
   const [cases, setCases] = useState([]);
   const [selected, setSelected] = useState({});
+  // User-written cases that passed /api/validate-custom-case:
+  // [{label, payload, description, classified_as}]
+  const [customCases, setCustomCases] = useState([]);
+  const [customLabel, setCustomLabel] = useState("");
+  const [customPayloadText, setCustomPayloadText] = useState("");
+  const [customMessage, setCustomMessage] = useState(null);
 
   const [testUsers, setTestUsers] = useState(3);
   const [testSpawnRate, setTestSpawnRate] = useState(1);
@@ -67,10 +75,14 @@ export default function App() {
   const [jobResult, setJobResult] = useState(null);
   const [showRawJob, setShowRawJob] = useState(false);
   const [websitePathsUsed, setWebsitePathsUsed] = useState(null);
+  // /api/regressions response for the current result (baseline comparison).
+  const [regressionInfo, setRegressionInfo] = useState(null);
+  const [markingBaseline, setMarkingBaseline] = useState(false);
 
   const [jobHistory, setJobHistory] = useState([]);
-  const [compareIdA, setCompareIdA] = useState("");
-  const [compareIdB, setCompareIdB] = useState("");
+  // Run ids ticked for comparison, in the order they were ticked (the first
+  // one is the reference the other runs are compared against).
+  const [compareIds, setCompareIds] = useState([]);
   const [compareResult, setCompareResult] = useState(null);
 
   const [error, setError] = useState(null);
@@ -91,6 +103,44 @@ export default function App() {
     );
     return () => clearInterval(timer);
   }, [runStartedAt, jobStatus]);
+
+  // Once a run finishes, ask the backend how it compares with its target's
+  // baseline. Kept out of pollStatus() on purpose.
+  useEffect(() => {
+    setRegressionInfo(null);
+    if (jobResult?.status === "completed" && jobId) {
+      loadRegressionInfo(jobId);
+    }
+  }, [jobResult, jobId]);
+
+  async function loadRegressionInfo(id) {
+    try {
+      const resp = await fetch(`${BASE}/api/regressions/${id}`);
+      if (resp.ok) setRegressionInfo(await resp.json());
+    } catch {
+      // optional extra — the result itself is already on screen
+    }
+  }
+
+  async function markAsBaseline() {
+    setMarkingBaseline(true);
+    try {
+      const resp = await fetch(`${BASE}/api/baseline`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: jobId }),
+      });
+      const data = await resp.json();
+      if (!resp.ok) {
+        setError(data.error || "Could not mark this run as the baseline");
+        return;
+      }
+      await loadRegressionInfo(jobId);
+      refreshJobHistory();
+    } finally {
+      setMarkingBaseline(false);
+    }
+  }
 
   async function refreshJobHistory() {
     try {
@@ -163,7 +213,16 @@ export default function App() {
     const defaults = {};
     data.cases.forEach((c) => (defaults[c.label] = true));
     setSelected(defaults);
+    // Custom cases were checked against the previous sample, so drop them.
+    setCustomCases([]);
+    setCustomMessage(null);
   }
+
+  // Generated cases plus the user's own, shown together in section 3.
+  const allCases = [
+    ...cases,
+    ...customCases.map((c) => ({ ...c, category: "custom", isCustom: true })),
+  ];
 
   function toggleCase(label) {
     setSelected((prev) => ({ ...prev, [label]: !prev[label] }));
@@ -171,12 +230,12 @@ export default function App() {
 
   function setAllCases(value) {
     const next = {};
-    cases.forEach((c) => (next[c.label] = value));
+    allCases.forEach((c) => (next[c.label] = value));
     setSelected(next);
   }
 
   function toggleCategory(category) {
-    const inCategory = cases.filter((c) => c.category === category);
+    const inCategory = allCases.filter((c) => c.category === category);
     const allOn = inCategory.every((c) => selected[c.label]);
     setSelected((prev) => {
       const next = { ...prev };
@@ -185,14 +244,62 @@ export default function App() {
     });
   }
 
-  const selectedCount = cases.filter((c) => selected[c.label]).length;
-  const caseCategories = [...new Set(cases.map((c) => c.category))];
+  async function validateCustomCase() {
+    setCustomMessage(null);
+    const label = customLabel.trim();
+    let payload;
+    try {
+      payload = JSON.parse(customPayloadText);
+    } catch (err) {
+      setCustomMessage({ ok: false, text: `Payload is not valid JSON: ${err.message}` });
+      return;
+    }
+    if (customCases.some((c) => c.label === label)) {
+      setCustomMessage({ ok: false, text: `You already added a case called '${label}'` });
+      return;
+    }
+    const resp = await fetch(`${BASE}/api/validate-custom-case`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sample_input: sampleInput, label, payload }),
+    });
+    const result = await resp.json();
+    if (!resp.ok || !result.valid) {
+      setCustomMessage({ ok: false, text: result.reason || result.error || "Not a valid case" });
+      return;
+    }
+    setCustomCases((prev) => [
+      ...prev,
+      { label, payload, description: result.description, classified_as: result.category },
+    ]);
+    setSelected((prev) => ({ ...prev, [label]: true }));
+    setCustomMessage({ ok: true, text: `Added '${label}' (${result.category}): ${result.description}` });
+    setCustomLabel("");
+    setCustomPayloadText("");
+  }
+
+  function removeCustomCase(label) {
+    setCustomCases((prev) => prev.filter((c) => c.label !== label));
+    setSelected((prev) => {
+      const next = { ...prev };
+      delete next[label];
+      return next;
+    });
+  }
+
+  const selectedCount = allCases.filter((c) => selected[c.label]).length;
+  const caseCategories = [...new Set(allCases.map((c) => c.category))];
 
   async function confirmAndStart() {
     if (testRunning) return;
     setError(null);
-    const selectedLabels = Object.keys(selected).filter((l) => selected[l]);
-    if (selectedLabels.length === 0) {
+    // Generated cases go by label; custom cases are sent in full so the
+    // backend can re-validate them.
+    const selectedLabels = cases.filter((c) => selected[c.label]).map((c) => c.label);
+    const selectedCustom = customCases
+      .filter((c) => selected[c.label])
+      .map((c) => ({ label: c.label, payload: c.payload }));
+    if (selectedLabels.length + selectedCustom.length === 0) {
       setError("Select at least one edge case");
       return;
     }
@@ -200,7 +307,11 @@ export default function App() {
     const confirmResp = await fetch(`${BASE}/api/confirm-selection`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ sample_input: sampleInput, selected_labels: selectedLabels }),
+      body: JSON.stringify({
+        sample_input: sampleInput,
+        selected_labels: selectedLabels,
+        custom_cases: selectedCustom,
+      }),
     });
     const confirmData = await confirmResp.json();
     if (!confirmResp.ok) {
@@ -286,17 +397,23 @@ export default function App() {
     poll();
   }
 
+  function toggleCompareId(id) {
+    setCompareIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : prev.length < 4 ? [...prev, id] : prev
+    );
+  }
+
   async function runComparison() {
     setError(null);
     setCompareResult(null);
-    if (!compareIdA || !compareIdB) {
-      setError("Pick two runs to compare");
+    if (compareIds.length < 2 || compareIds.length > 4) {
+      setError("Pick 2 to 4 runs to compare");
       return;
     }
     const resp = await fetch(`${BASE}/api/compare-jobs`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ job_id_a: compareIdA, job_id_b: compareIdB }),
+      body: JSON.stringify({ job_ids: compareIds }),
     });
     const data = await resp.json();
     if (!resp.ok) {
@@ -465,13 +582,13 @@ export default function App() {
               Select none
             </button>
             <span style={{ marginLeft: "auto", fontSize: 12.5, color: colors.textMuted, fontFamily: font.mono }}>
-              {selectedCount} of {cases.length} selected
+              {selectedCount} of {allCases.length} selected
             </span>
           </div>
 
           <div style={{ display: "flex", flexWrap: "wrap", gap: space.xs, marginBottom: space.sm }}>
             {caseCategories.map((cat) => {
-              const inCategory = cases.filter((c) => c.category === cat);
+              const inCategory = allCases.filter((c) => c.category === cat);
               const onCount = inCategory.filter((c) => selected[c.label]).length;
               const allOn = onCount === inCategory.length;
               return (
@@ -507,7 +624,7 @@ export default function App() {
               background: colors.bg,
             }}
           >
-            {cases.map((c) => (
+            {allCases.map((c) => (
               <label
                 key={c.label}
                 style={{ display: "block", padding: "6px 4px", fontSize: 13.5, cursor: "pointer" }}
@@ -518,13 +635,82 @@ export default function App() {
                   onChange={() => toggleCase(c.label)}
                   style={{ marginRight: 8 }}
                 />
-                <span style={{ color: colors.accent, fontFamily: font.mono, fontSize: 11.5 }}>
+                <span
+                  style={{
+                    color: c.isCustom ? colors.info : colors.accent,
+                    fontFamily: font.mono,
+                    fontSize: 11.5,
+                  }}
+                >
                   [{c.category}]
                 </span>{" "}
+                {c.isCustom && (
+                  <span style={{ fontFamily: font.mono, fontSize: 12, color: colors.textMuted }}>
+                    {c.label}:{" "}
+                  </span>
+                )}
                 <span style={{ color: colors.text }}>{c.description}</span>
+                {c.isCustom && (
+                  <button
+                    onClick={(e) => {
+                      e.preventDefault();
+                      removeCustomCase(c.label);
+                    }}
+                    aria-label={`Remove custom case ${c.label}`}
+                    style={{
+                      marginLeft: space.sm,
+                      background: "transparent",
+                      border: "none",
+                      color: colors.textMuted,
+                      cursor: "pointer",
+                      fontSize: 14,
+                    }}
+                  >
+                    ×
+                  </button>
+                )}
               </label>
             ))}
           </div>
+
+          <details style={{ marginTop: space.sm }}>
+            <summary style={{ cursor: "pointer", fontSize: 13, color: colors.accent }}>
+              Add your own case
+            </summary>
+            <div style={{ marginTop: space.sm }}>
+              <p style={{ fontSize: 12, color: colors.textMuted, marginTop: 0 }}>
+                Give it a label (lowercase letters, digits, _) and the JSON body to send. It must
+                differ from the sample input above.
+              </p>
+              <input
+                style={{ ...inputStyle, marginBottom: space.xs }}
+                placeholder="label, e.g. admin_user"
+                value={customLabel}
+                onChange={(e) => setCustomLabel(e.target.value)}
+              />
+              <textarea
+                rows={3}
+                style={{ ...inputStyle, resize: "vertical" }}
+                placeholder='{"username": "admin", "password": "demo123", "expiresInMins": 30}'
+                value={customPayloadText}
+                onChange={(e) => setCustomPayloadText(e.target.value)}
+              />
+              <button onClick={validateCustomCase} style={bulkBtnStyle}>
+                Validate and add
+              </button>
+              {customMessage && (
+                <div
+                  style={{
+                    marginTop: space.xs,
+                    fontSize: 12.5,
+                    color: customMessage.ok ? colors.success : colors.danger,
+                  }}
+                >
+                  {customMessage.text}
+                </div>
+              )}
+            </div>
+          </details>
 
           <LoadTestConfig
             users={testUsers}
@@ -609,39 +795,82 @@ export default function App() {
               onToggleRaw={() => setShowRawJob((v) => !v)}
             />
           )}
+          {jobResult && (
+            <RunActions
+              run={jobResult}
+              regressionInfo={regressionInfo}
+              onMarkBaseline={markAsBaseline}
+              markingBaseline={markingBaseline}
+            />
+          )}
         </Section>
       )}
 
       {jobHistory.length > 0 && (
         <Section id="step-5" title="5. Compare past runs">
           <>
-            <div style={{ display: "flex", gap: space.sm, marginBottom: space.md }}>
-              <select
-                style={{ ...inputStyle, flex: 1, fontFamily: font.sans }}
-                value={compareIdA}
-                onChange={(e) => setCompareIdA(e.target.value)}
-              >
-                <option value="">— Run A —</option>
-                {jobHistory.map((j) => (
-                  <option key={j.id} value={j.id}>
-                    {j.target_url} · {j.users}u · {j.status} · {j.created_at}
-                  </option>
-                ))}
-              </select>
-              <select
-                style={{ ...inputStyle, flex: 1, fontFamily: font.sans }}
-                value={compareIdB}
-                onChange={(e) => setCompareIdB(e.target.value)}
-              >
-                <option value="">— Run B —</option>
-                {jobHistory.map((j) => (
-                  <option key={j.id} value={j.id}>
-                    {j.target_url} · {j.users}u · {j.status} · {j.created_at}
-                  </option>
-                ))}
-              </select>
+            <p style={{ fontSize: 12.5, color: colors.textMuted, marginTop: 0 }}>
+              Tick 2 to 4 runs. The first one you tick is the reference (Run 1).
+            </p>
+            <div
+              className="case-list"
+              style={{
+                maxHeight: 220,
+                overflowY: "auto",
+                border: `1px solid ${colors.border}`,
+                borderRadius: radius.md,
+                padding: space.sm,
+                background: colors.bg,
+                marginBottom: space.sm,
+              }}
+            >
+              {jobHistory.map((j) => {
+                const position = compareIds.indexOf(j.id);
+                const checked = position !== -1;
+                const full = !checked && compareIds.length >= 4;
+                return (
+                  <label
+                    key={j.id}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: space.sm,
+                      padding: "5px 4px",
+                      fontSize: 12.5,
+                      cursor: full ? "not-allowed" : "pointer",
+                      opacity: full ? 0.5 : 1,
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      value={j.id}
+                      checked={checked}
+                      disabled={full}
+                      onChange={() => toggleCompareId(j.id)}
+                    />
+                    <span style={{ width: 24, color: colors.accent, fontFamily: font.mono, fontSize: 11 }}>
+                      {checked ? `#${position + 1}` : ""}
+                    </span>
+                    <span style={{ fontFamily: font.mono }}>
+                      {j.target_url} · {j.users}u · {j.status} · {formatTime(j.created_at)}
+                      {j.is_baseline ? <span style={{ color: colors.accent }}> · ★ baseline</span> : null}
+                    </span>
+                  </label>
+                );
+              })}
             </div>
-            <button onClick={runComparison} style={btnStyle}>Compare</button>
+            <div style={{ fontSize: 12.5, color: compareIds.length >= 2 ? colors.textMuted : colors.warning }}>
+              {compareIds.length} selected
+              {compareIds.length < 2 && " — select at least 2 runs to compare"}
+              {compareIds.length === 4 && " — maximum of 4 reached"}
+            </div>
+            <button
+              onClick={runComparison}
+              style={{ ...btnStyle, opacity: compareIds.length >= 2 ? 1 : 0.5 }}
+              disabled={compareIds.length < 2}
+            >
+              Compare
+            </button>
             <button
               onClick={refreshJobHistory}
               style={{ ...btnStyle, background: "transparent", color: colors.accent, marginLeft: space.sm, boxShadow: "none" }}
@@ -649,7 +878,9 @@ export default function App() {
               Refresh list
             </button>
 
-            {compareResult && <CompareView jobA={compareResult.job_a} jobB={compareResult.job_b} />}
+            {compareResult?.jobs && (
+              <CompareView jobs={compareResult.jobs} caseComparison={compareResult.case_comparison} />
+            )}
           </>
         </Section>
       )}
