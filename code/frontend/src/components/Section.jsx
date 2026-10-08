@@ -15,9 +15,9 @@ export function StepState({ state }) {
       style={{
         display: "inline-flex",
         alignItems: "center",
-        gap: 6,
+        gap: space.sm,
         fontFamily: font.mono,
-        fontSize: type.label,
+        fontSize: type.meta,
         color: s.color,
         whiteSpace: "nowrap",
       }}
@@ -29,6 +29,7 @@ export function StepState({ state }) {
 }
 
 // One workflow step: number, title, a one-line explanation and its state.
+// The current step gets a stronger border so it stands out from the rest.
 export default function Section({ id, step, title, description, state, children }) {
   return (
     <section
@@ -52,19 +53,21 @@ export default function Section({ id, step, title, description, state, children 
         }}
       >
         {step != null && (
-          <span style={{ fontFamily: font.mono, fontSize: type.label, color: colors.textMuted }}>
+          <span style={{ fontFamily: font.mono, fontSize: type.meta, color: colors.textMuted }}>
             {String(step).padStart(2, "0")}
           </span>
         )}
         <div style={{ flex: 1, minWidth: 0 }}>
           <h2
             id={id ? `${id}-title` : undefined}
-            style={{ margin: 0, fontSize: type.heading, fontWeight: 600, color: colors.text, lineHeight: 1.3 }}
+            style={{ margin: 0, fontSize: type.heading, fontWeight: 600, color: colors.text }}
           >
             {title}
           </h2>
           {description && (
-            <p style={{ margin: "2px 0 0", fontSize: type.small, color: colors.textMuted }}>{description}</p>
+            <p style={{ margin: `${space.xs}px 0 0`, fontSize: type.meta, color: colors.textMuted, maxWidth: "75ch" }}>
+              {description}
+            </p>
           )}
         </div>
         {state && <StepState state={state} />}
@@ -74,56 +77,22 @@ export default function Section({ id, step, title, description, state, children 
   );
 }
 
-// ---- Shared control styles ------------------------------------------------
-
-export const btnStyle = {
-  marginTop: space.sm,
-  padding: "8px 16px",
-  background: colors.accent,
-  color: colors.onAccent,
-  border: `1px solid ${colors.accent}`,
-  borderRadius: radius.md,
-  cursor: "pointer",
-  fontSize: type.body,
-  fontWeight: 600,
-};
-
-export const secondaryBtnStyle = {
-  ...btnStyle,
-  background: "transparent",
-  color: colors.text,
-  border: `1px solid ${colors.border}`,
-  fontWeight: 500,
-};
-
-// Text-only action ("Show raw response", "Refresh list").
-export const linkBtnStyle = {
-  background: "transparent",
-  border: "none",
-  color: colors.accent,
-  cursor: "pointer",
-  fontSize: type.small,
-  padding: `${space.xs}px 0`,
-};
-
-// Greys a button out while it can't be used (e.g. a test is running).
-export function withDisabled(style, disabled) {
-  return disabled
-    ? { ...style, background: colors.surfaceRaised, color: colors.textFaint, border: `1px solid ${colors.borderSubtle}` }
-    : style;
-}
+// ---- Shared styles ----------------------------------------------------------
+// Buttons are styled by CSS classes in index.css (btn btn-primary, btn
+// btn-secondary, btn-link, btn-bare, toggle) so they get hover, active and
+// disabled states, which inline styles can't express.
 
 export const labelStyle = {
   display: "block",
   fontFamily: font.mono,
-  fontSize: type.label,
+  fontSize: type.meta,
   color: colors.textMuted,
   marginBottom: space.xs,
 };
 
 export const inputStyle = {
   width: "100%",
-  padding: "9px 12px",
+  padding: `${space.sm}px ${space.md}px`,
   boxSizing: "border-box",
   background: colors.inset,
   border: `1px solid ${colors.border}`,
@@ -151,41 +120,42 @@ export const preStyle = {
   overflowY: "auto",
   color: colors.textMuted,
   fontFamily: font.mono,
-  fontSize: type.small,
+  fontSize: type.meta,
   lineHeight: 1.6,
 };
 
 export const tableStyle = {
   width: "100%",
   borderCollapse: "collapse",
-  fontSize: 13,
+  fontSize: type.body,
 };
 
 export const thStyle = {
-  padding: "8px 10px",
+  padding: `${space.sm}px ${space.md}px`,
   color: colors.textMuted,
   fontFamily: font.mono,
   fontWeight: 400,
-  fontSize: type.label,
+  fontSize: type.meta,
   textAlign: "left",
   whiteSpace: "nowrap",
   borderBottom: `1px solid ${colors.border}`,
 };
 
 export const tdStyle = {
-  padding: "7px 10px",
+  padding: `${space.sm}px ${space.md}px`,
   fontFamily: font.mono,
-  fontSize: 13,
+  fontSize: type.meta,
   color: colors.text,
   borderBottom: `1px solid ${colors.borderSubtle}`,
 };
 
 export const chipStyle = {
   fontFamily: font.mono,
-  fontSize: 11.5,
+  fontSize: type.meta,
   color: colors.textMuted,
   background: colors.inset,
   border: `1px solid ${colors.borderSubtle}`,
   borderRadius: radius.sm,
-  padding: "1px 7px",
+  padding: `0 ${space.sm}px`,
+  lineHeight: "20px",
 };

@@ -70,5 +70,5 @@ export default function LoadTestConfig({
 
 const inputStyle = {
   ...themeInputStyle,
-  padding: "8px 10px",
+  padding: `${space.sm}px ${space.md}px`,
 };

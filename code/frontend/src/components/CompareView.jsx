@@ -22,17 +22,17 @@ function failureRate(row) {
 // increase is a regression (red), null = neutral config value (no verdict).
 function Delta({ base, value, goodWhenUp }) {
   if (base == null || value == null || base === 0) {
-    return <span style={{ color: colors.textFaint, marginLeft: 6 }}>—</span>;
+    return <span style={{ color: colors.textFaint, marginLeft: space.sm }}>—</span>;
   }
   const delta = ((value - base) / base) * 100;
   if (Math.abs(delta) < 0.05) {
-    return <span style={{ color: colors.textFaint, marginLeft: 6 }}>0%</span>;
+    return <span style={{ color: colors.textFaint, marginLeft: space.sm }}>0%</span>;
   }
   const up = delta > 0;
   const color =
     goodWhenUp == null ? colors.textMuted : up === goodWhenUp ? colors.success : colors.danger;
   return (
-    <span style={{ color, whiteSpace: "nowrap", fontSize: 11.5, marginLeft: 6 }}>
+    <span style={{ color, whiteSpace: "nowrap", fontSize: type.meta, marginLeft: space.sm }}>
       {up ? "▲" : "▼"} {Math.abs(delta).toFixed(1)}%
     </span>
   );
@@ -42,10 +42,10 @@ function runLabel(job, i) {
   return (
     <>
       <span style={{ color: colors.text }}>Run {i + 1}</span>
-      <span style={{ marginLeft: 6 }}>
+      <span style={{ marginLeft: space.sm }}>
         {job.users} users{Array.isArray(job.child_jobs) ? ", split" : ""}
       </span>
-      <div style={{ fontSize: 11, color: colors.textFaint }}>{formatTime(job.created_at)}</div>
+      <div style={{ fontSize: type.meta, color: colors.textFaint }}>{formatTime(job.created_at)}</div>
     </>
   );
 }
@@ -62,7 +62,7 @@ function CaseCell({ cell }) {
       <span style={{ color: lowSample ? colors.textFaint : passed ? colors.success : colors.text }}>
         {cell.rate == null ? "—" : `${cell.rate.toFixed(0)}%`}
       </span>
-      <span style={{ color: colors.textFaint, fontSize: 11, marginLeft: 6 }}>
+      <span style={{ color: colors.textFaint, fontSize: type.meta, marginLeft: space.sm }}>
         n={cell.requests}
         {lowSample && ", low sample"}
       </span>
@@ -163,7 +163,7 @@ export default function CompareView({ jobs, caseComparison }) {
           </tbody>
         </table>
       </div>
-      <p style={{ fontSize: type.label, color: colors.textMuted, marginTop: space.xs }}>
+      <p style={{ fontSize: type.meta, color: colors.textMuted, marginTop: space.xs }}>
         ▲ / ▼ show the change against Run 1, the first run you ticked. Green is better, red is worse.
       </p>
 
@@ -172,7 +172,7 @@ export default function CompareView({ jobs, caseComparison }) {
           <h3 style={{ fontSize: type.body, fontWeight: 600, marginTop: space.xl, marginBottom: space.xs }}>
             Failure rate per case
           </h3>
-          <p style={{ fontSize: type.small, color: colors.textMuted, marginTop: 0, maxWidth: "75ch" }}>
+          <p style={{ fontSize: type.meta, color: colors.textMuted, marginTop: 0, maxWidth: "75ch" }}>
             Each cell is that case's failure rate in that run, with its request count (n). Faint
             cells had fewer than {caseComparison.min_requests} requests, so they are not used to decide
             whether a case changed. A case counts as changed with load when its failure rate differs
@@ -201,7 +201,7 @@ export default function CompareView({ jobs, caseComparison }) {
                   <tr key={r.case} style={{ background: colors.accentSoft }}>
                     <td style={{ ...tdStyle, boxShadow: `inset 2px 0 0 ${colors.accent}` }}>
                       {r.case}
-                      <span style={{ color: colors.accent, fontSize: 11, marginLeft: space.sm }}>
+                      <span style={{ color: colors.accent, fontSize: type.meta, marginLeft: space.sm }}>
                         Δ {r.spread.toFixed(0)} pts
                       </span>
                     </td>

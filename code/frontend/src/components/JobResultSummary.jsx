@@ -1,6 +1,6 @@
 import { useState } from "react";
 import {
-  preStyle, thStyle, tdStyle, tableStyle, chipStyle, linkBtnStyle, subPanelStyle,
+  preStyle, thStyle, tdStyle, tableStyle, chipStyle, subPanelStyle,
 } from "./Section";
 import { parseStatsCsv } from "../utils/parseStatsCsv";
 import { parseFailuresCsv } from "../utils/parseFailuresCsv";
@@ -21,11 +21,11 @@ function rowStats(r) {
 function Readout({ label, value, sub, title }) {
   return (
     <div title={title} style={{ background: colors.surfaceRaised, padding: `${space.md}px ${space.lg}px` }}>
-      <div style={{ fontFamily: font.mono, fontSize: type.label, color: colors.textMuted }}>{label}</div>
+      <div style={{ fontFamily: font.mono, fontSize: type.meta, color: colors.textMuted }}>{label}</div>
       <div style={{ fontFamily: font.mono, fontSize: type.readout, fontWeight: 500, lineHeight: 1.25, color: colors.text }}>
         {value}
       </div>
-      {sub && <div style={{ fontFamily: font.mono, fontSize: 11.5, color: colors.textFaint }}>{sub}</div>}
+      {sub && <div style={{ fontFamily: font.mono, fontSize: type.meta, color: colors.textFaint }}>{sub}</div>}
     </div>
   );
 }
@@ -192,16 +192,7 @@ export default function JobResultSummary({ data, showRaw, onToggleRaw, regressio
       key={mode}
       onClick={() => setView(mode)}
       aria-pressed={view === mode}
-      style={{
-        padding: "4px 12px",
-        fontSize: type.small,
-        fontWeight: 500,
-        border: "none",
-        cursor: "pointer",
-        borderRadius: radius.sm,
-        background: view === mode ? colors.accentSoft : "transparent",
-        color: view === mode ? colors.accent : colors.textMuted,
-      }}
+      className="toggle"
     >
       {label}
     </button>
@@ -295,7 +286,7 @@ export default function JobResultSummary({ data, showRaw, onToggleRaw, regressio
           </div>
 
           <div style={{ ...subPanelStyle, padding: space.md, marginTop: space.sm }}>
-            <div style={{ fontFamily: font.mono, fontSize: type.label, color: colors.textMuted, marginBottom: space.sm }}>
+            <div style={{ fontFamily: font.mono, fontSize: type.meta, color: colors.textMuted, marginBottom: space.sm }}>
               How the {agg.requests.toLocaleString()} requests ended
             </div>
             <OutcomeStrip requests={agg.requests} kindCounts={runKinds} failureTotal={agg.failures} size="large" />
@@ -313,12 +304,12 @@ export default function JobResultSummary({ data, showRaw, onToggleRaw, regressio
         <div style={{ display: "flex", alignItems: "center", marginTop: space.xl, marginBottom: space.xs }}>
           <h3 style={{ margin: 0, fontSize: type.body, fontWeight: 600, flex: 1 }}>
             {isWebsite ? "Pages" : "Edge cases"}
-            <span style={{ fontFamily: font.mono, fontWeight: 400, color: colors.textMuted, marginLeft: space.sm, fontSize: type.label }}>
+            <span style={{ fontFamily: font.mono, fontWeight: 400, color: colors.textMuted, marginLeft: space.sm, fontSize: type.meta }}>
               {nonAggregated.length}
             </span>
           </h3>
           {!isWebsite && (
-            <div role="group" aria-label="Table view" style={{ display: "flex", gap: 2 }}>
+            <div role="group" aria-label="Table view" style={{ display: "flex", gap: space.xs }}>
               {viewToggleBtn("flat", "Flat")}
               {viewToggleBtn("grouped", "Grouped")}
             </div>
@@ -340,17 +331,11 @@ export default function JobResultSummary({ data, showRaw, onToggleRaw, regressio
                     <button
                       onClick={() => toggleSort(c.key)}
                       title={`Sort by ${c.label}`}
-                      style={{
-                        background: "transparent",
-                        border: "none",
-                        padding: 0,
-                        color: sort.key === c.key ? colors.text : colors.textMuted,
-                        font: "inherit",
-                        cursor: "pointer",
-                      }}
+                      className="btn-bare"
+                      style={{ color: sort.key === c.key ? colors.text : undefined }}
                     >
                       {c.label}
-                      <span style={{ color: colors.accent, marginLeft: 4, fontSize: 10 }}>
+                      <span style={{ color: colors.accent, marginLeft: space.xs, fontSize: type.meta }}>
                         {sort.key === c.key ? (sort.dir === "desc" ? "▾" : "▴") : ""}
                       </span>
                     </button>
@@ -369,22 +354,14 @@ export default function JobResultSummary({ data, showRaw, onToggleRaw, regressio
                         <button
                           onClick={() => setCollapsed((prev) => ({ ...prev, [g.cat]: !prev[g.cat] }))}
                           aria-expanded={isOpen}
-                          style={{
-                            background: "transparent",
-                            border: "none",
-                            padding: 0,
-                            color: colors.text,
-                            fontFamily: font.sans,
-                            fontSize: type.body,
-                            fontWeight: 600,
-                            cursor: "pointer",
-                          }}
+                          className="btn-bare"
+                          style={{ color: colors.text, fontFamily: font.sans, fontSize: type.body, fontWeight: 600 }}
                         >
-                          <span style={{ color: colors.accent, marginRight: 6, fontSize: 10 }}>
+                          <span style={{ color: colors.accent, marginRight: space.sm, fontSize: type.meta }}>
                             {isOpen ? "▾" : "▸"}
                           </span>
                           {CATEGORY_LABELS[g.cat]}
-                          <span style={{ color: colors.textMuted, fontWeight: 400, marginLeft: 6, fontFamily: font.mono, fontSize: type.label }}>
+                          <span style={{ color: colors.textMuted, fontWeight: 400, marginLeft: space.sm, fontFamily: font.mono, fontSize: type.meta }}>
                             {g.rows.length}
                           </span>
                         </button>
@@ -423,26 +400,23 @@ export default function JobResultSummary({ data, showRaw, onToggleRaw, regressio
           <button
             onClick={() => setShowFailureReasons((v) => !v)}
             aria-expanded={showFailureReasons}
+            className="btn-bare"
             style={{
               width: "100%",
               display: "flex",
               alignItems: "center",
               gap: space.sm,
               padding: `${space.sm}px ${space.md}px`,
-              background: "transparent",
-              border: "none",
-              cursor: "pointer",
               color: colors.text,
               fontSize: type.body,
               fontWeight: 600,
-              textAlign: "left",
             }}
           >
-            <span style={{ color: colors.accent, fontSize: 10 }}>
+            <span style={{ color: colors.accent, fontSize: type.meta }}>
               {showFailureReasons ? "▾" : "▸"}
             </span>
             Why did these fail?
-            <span style={{ color: colors.textMuted, fontWeight: 400, fontFamily: font.mono, fontSize: type.label }}>
+            <span style={{ color: colors.textMuted, fontWeight: 400, fontFamily: font.mono, fontSize: type.meta }}>
               {failureTypes.length} failure type{failureTypes.length === 1 ? "" : "s"}
             </span>
           </button>
@@ -460,24 +434,24 @@ export default function JobResultSummary({ data, showRaw, onToggleRaw, regressio
                       <span
                         style={{
                           fontFamily: font.mono,
-                          fontSize: type.label,
+                          fontSize: type.meta,
                           fontWeight: 500,
                           color: tone.fg,
                           background: tone.soft,
                           border: `1px solid ${tone.fg}`,
                           borderRadius: radius.sm,
-                          padding: "1px 7px",
+                          padding: `0 ${space.sm}px`, lineHeight: "20px",
                         }}
                       >
                         {t.code ?? "ERR"}
                       </span>
                       <span style={{ flex: 1, fontSize: type.body, color: colors.text }}>
                         {t.meaning}
-                        <span style={{ color: colors.textMuted, fontFamily: font.mono, fontSize: type.label, marginLeft: space.sm }}>
+                        <span style={{ color: colors.textMuted, fontFamily: font.mono, fontSize: type.meta, marginLeft: space.sm }}>
                           {t.reason}
                         </span>
                       </span>
-                      <span style={{ fontFamily: font.mono, fontSize: type.label, color: colors.textMuted, whiteSpace: "nowrap" }}>
+                      <span style={{ fontFamily: font.mono, fontSize: type.meta, color: colors.textMuted, whiteSpace: "nowrap" }}>
                         ×{t.total}
                       </span>
                     </div>
@@ -493,7 +467,7 @@ export default function JobResultSummary({ data, showRaw, onToggleRaw, regressio
               })}
 
               {errorGroups.length > 0 && (
-                <button onClick={() => setShowRawErrors((v) => !v)} aria-expanded={showRawErrors} style={linkBtnStyle}>
+                <button onClick={() => setShowRawErrors((v) => !v)} aria-expanded={showRawErrors} className="btn-link">
                   {showRawErrors ? "Hide raw errors" : `Show raw errors (${errorGroups.length})`}
                 </button>
               )}
@@ -501,10 +475,10 @@ export default function JobResultSummary({ data, showRaw, onToggleRaw, regressio
               {showRawErrors && errorGroups.map((g) => (
                 <div key={g.error} style={{ borderTop: `1px solid ${colors.borderSubtle}`, padding: `${space.sm}px 0` }}>
                   <div style={{ display: "flex", alignItems: "baseline", gap: space.sm }}>
-                    <span style={{ fontFamily: font.mono, fontSize: type.small, color: colors.text, wordBreak: "break-word", flex: 1 }}>
+                    <span style={{ fontFamily: font.mono, fontSize: type.meta, color: colors.text, wordBreak: "break-word", flex: 1 }}>
                       {g.error}
                     </span>
-                    <span style={{ fontFamily: font.mono, fontSize: type.label, color: colors.textMuted, whiteSpace: "nowrap" }}>
+                    <span style={{ fontFamily: font.mono, fontSize: type.meta, color: colors.textMuted, whiteSpace: "nowrap" }}>
                       ×{g.total}
                     </span>
                   </div>
@@ -522,7 +496,7 @@ export default function JobResultSummary({ data, showRaw, onToggleRaw, regressio
         </div>
       )}
 
-      <button onClick={onToggleRaw} aria-expanded={showRaw} style={{ ...linkBtnStyle, marginTop: space.sm }}>
+      <button onClick={onToggleRaw} aria-expanded={showRaw} className="btn-link" style={{ marginTop: space.sm }}>
         {showRaw ? "Hide raw response" : "Show raw response"}
       </button>
 

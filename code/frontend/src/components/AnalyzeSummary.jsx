@@ -1,4 +1,4 @@
-import { linkBtnStyle, preStyle } from "./Section";
+import { preStyle } from "./Section";
 import { colors, font, radius, space, type } from "../theme";
 
 // What /api/analyze found out about the target, as a small readout.
@@ -33,18 +33,18 @@ export default function AnalyzeSummary({ data, showRaw, onToggleRaw }) {
       >
         {cells.map((c) => (
           <div key={c.label} style={{ background: colors.surfaceRaised, padding: `${space.sm}px ${space.md}px` }}>
-            <div style={{ fontFamily: font.mono, fontSize: type.label, color: colors.textMuted }}>{c.label}</div>
-            <div style={{ fontFamily: font.mono, fontSize: 16, color: c.color || colors.text }}>{c.value}</div>
+            <div style={{ fontFamily: font.mono, fontSize: type.meta, color: colors.textMuted }}>{c.label}</div>
+            <div style={{ fontFamily: font.mono, fontSize: type.heading, color: c.color || colors.text }}>{c.value}</div>
           </div>
         ))}
       </div>
       {sanity.error && (
-        <p role="alert" style={{ color: colors.danger, fontSize: type.small, margin: `${space.sm}px 0 0` }}>
+        <p role="alert" style={{ color: colors.danger, fontSize: type.meta, margin: `${space.sm}px 0 0` }}>
           {sanity.error}
         </p>
       )}
 
-      <button onClick={onToggleRaw} aria-expanded={showRaw} style={{ ...linkBtnStyle, marginTop: space.xs }}>
+      <button onClick={onToggleRaw} aria-expanded={showRaw} className="btn-link" style={{ marginTop: space.xs }}>
         {showRaw ? "Hide raw response" : "Show raw response"}
       </button>
 

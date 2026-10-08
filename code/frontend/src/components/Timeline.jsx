@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { parseStatsCsv } from "../utils/parseStatsCsv";
-import { thStyle, tdStyle, tableStyle, linkBtnStyle, subPanelStyle } from "./Section";
+import { thStyle, tdStyle, tableStyle, subPanelStyle } from "./Section";
 import { colors, font, space, type } from "../theme";
 
 // Drawing area inside each SVG (viewBox units; the SVG scales to its box).
@@ -79,11 +79,11 @@ function LineChart({ title, points, series, xMax, hoverIndex, onHover, showXAxis
 
   return (
     <div style={{ marginBottom: space.xs }}>
-      <div style={{ display: "flex", alignItems: "center", gap: space.md, fontSize: type.small, color: colors.textMuted }}>
+      <div style={{ display: "flex", alignItems: "center", gap: space.md, fontSize: type.meta, color: colors.textMuted }}>
         <span style={{ color: colors.text, fontWeight: 500 }}>{title}</span>
         {series.length > 1 &&
           series.map((s) => (
-            <span key={s.key} style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+            <span key={s.key} style={{ display: "inline-flex", alignItems: "center", gap: space.sm }}>
               <span style={{ width: 14, height: 2, background: s.color, display: "inline-block" }} />
               {s.label}
             </span>
@@ -100,7 +100,7 @@ function LineChart({ title, points, series, xMax, hoverIndex, onHover, showXAxis
         {[0, 0.5, 1].map((f) => (
           <g key={f}>
             <line x1={PAD.left} x2={W - PAD.right} y1={y(yMax * f)} y2={y(yMax * f)} stroke={colors.grid} strokeWidth={1} />
-            <text x={PAD.left - 6} y={y(yMax * f) + 4} textAnchor="end" fontSize={10} fill={colors.textMuted} fontFamily={font.mono}>
+            <text x={PAD.left - 6} y={y(yMax * f) + 4} textAnchor="end" fontSize={type.meta} fill={colors.textMuted} fontFamily={font.mono}>
               {Math.round(yMax * f)}
             </text>
           </g>
@@ -121,11 +121,11 @@ function LineChart({ title, points, series, xMax, hoverIndex, onHover, showXAxis
         {showXAxis && (
           <g>
             {xTicks.map((t) => (
-              <text key={t} x={x(t)} y={PAD.top + plotHeight + 16} textAnchor="middle" fontSize={10} fill={colors.textMuted} fontFamily={font.mono}>
+              <text key={t} x={x(t)} y={PAD.top + plotHeight + 16} textAnchor="middle" fontSize={type.meta} fill={colors.textMuted} fontFamily={font.mono}>
                 {t}s
               </text>
             ))}
-            <text x={W / 2} y={height - 2} textAnchor="middle" fontSize={10} fill={colors.textMuted}>
+            <text x={W / 2} y={height - 2} textAnchor="middle" fontSize={type.meta} fill={colors.textMuted}>
               seconds since the test started
             </text>
           </g>
@@ -152,7 +152,7 @@ export default function Timeline({ historyCsv }) {
         <h3 style={{ margin: 0, fontSize: type.body, fontWeight: 600 }}>Timeline</h3>
         <span
           aria-live="polite"
-          style={{ display: "flex", gap: space.md, fontSize: type.label, color: colors.textMuted, fontFamily: font.mono }}
+          style={{ display: "flex", gap: space.md, fontSize: type.meta, color: colors.textMuted, fontFamily: font.mono }}
         >
           {h ? (
             <>
@@ -186,16 +186,16 @@ export default function Timeline({ historyCsv }) {
         showXAxis
         {...shared}
       />
-      <p style={{ fontSize: type.label, color: colors.textMuted, margin: `${space.xs}px 0 0`, maxWidth: "80ch" }}>
+      <p style={{ fontSize: type.meta, color: colors.textMuted, margin: `${space.xs}px 0 0`, maxWidth: "80ch" }}>
         Locust reports the average as a running average since the start, and p95 over a short
         rolling window, so p95 reacts faster when the server starts to slow down.
       </p>
-      <button onClick={() => setShowTable((v) => !v)} aria-expanded={showTable} style={linkBtnStyle}>
+      <button onClick={() => setShowTable((v) => !v)} aria-expanded={showTable} className="btn-link">
         {showTable ? "Hide data table" : "Show data table"}
       </button>
       {showTable && (
         <div style={{ maxHeight: 220, overflowY: "auto" }}>
-          <table style={{ ...tableStyle, fontSize: 12 }}>
+          <table style={{ ...tableStyle, fontSize: type.meta }}>
             <thead>
               <tr>
                 {["Second", "Users", "Req/s", "Fail/s", "Avg ms", "p95 ms"].map((hdr) => (

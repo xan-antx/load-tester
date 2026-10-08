@@ -473,15 +473,25 @@ monospace font for every number. The left step rail shows each step's state
 **Why it exists.** A consistent visual language makes the tool feel like real
 engineering software and makes the results easier to read.
 
-**How it works.** All colours, fonts and sizes are design tokens (named values)
-in one file, `theme.js`; components only use those names. The fonts are stored
-in the project (`public/fonts`), so the app works without internet. The step
-rail used to live inside `App.jsx`; it is now its own component.
+**How it works.** All colours, fonts, sizes, spacing and motion timings are
+design tokens (named values) in one file, `theme.js`; components only use those
+names. At start-up `main.jsx` publishes the same tokens as CSS variables, so
+the stylesheet uses them too and contains no colour values of its own. Buttons
+and clickable rows are styled by CSS classes (`btn`, `btn-primary`, `toggle`,
+`row-interactive` …) because only CSS can give them hover, pressed and
+disabled states. There are five text sizes and one 4px spacing scale. Motion
+is limited to short feedback and the progress bar, which moves with
+`transform` rather than resizing. The fonts are stored in the project
+(`public/fonts`), so the app works without internet. The step rail used to
+live inside `App.jsx`; it is now its own component.
 
-**Files.** `code/frontend/src/theme.js`, `code/frontend/src/index.css`,
-`code/frontend/public/fonts/`, `code/frontend/src/components/Section.jsx`
-(step panels and shared styles), `code/frontend/src/components/StepRail.jsx`
-(moved out of `App.jsx`), `App.jsx`.
+**Files.** `code/frontend/src/theme.js` (tokens and `applyTheme`),
+`code/frontend/src/main.jsx` (calls `applyTheme`),
+`code/frontend/src/index.css` (fonts, button and row states, layout,
+scrollbars, reduced motion), `code/frontend/public/fonts/`,
+`code/frontend/src/components/Section.jsx` (step panels and shared input and
+table styles; button styles moved to `index.css`),
+`code/frontend/src/components/StepRail.jsx` (moved out of `App.jsx`), `App.jsx`.
 
 **Demo.** Watch the rail while doing the workflow: each step goes from
 "Current step" to "Done"; for a website target, steps 2 and 3 show "Not

@@ -1,7 +1,5 @@
 import { useState, useEffect } from "react";
-import Section, {
-  btnStyle, secondaryBtnStyle, linkBtnStyle, inputStyle, labelStyle, withDisabled,
-} from "./components/Section";
+import Section, { inputStyle, labelStyle } from "./components/Section";
 import AnalyzeSummary from "./components/AnalyzeSummary";
 import JobResultSummary from "./components/JobResultSummary";
 import CompareView from "./components/CompareView";
@@ -10,7 +8,7 @@ import LoadTestConfig, { LIMITS, clampInt } from "./components/LoadTestConfig";
 import RunActions from "./components/RunActions";
 import AppHeader from "./components/AppHeader";
 import StepRail from "./components/StepRail";
-import { colors, font, space, radius, type } from "./theme";
+import { colors, font, space, radius, type, z } from "./theme";
 import { formatTime } from "./utils/formatTime";
 
 const BASE = import.meta.env.VITE_API_BASE || "http://localhost:5000";
@@ -454,20 +452,13 @@ export default function App() {
   }));
   const stateOf = (n) => steps[n - 1].state;
 
-  const smallBtnStyle = {
-    ...secondaryBtnStyle,
-    marginTop: 0,
-    padding: "4px 10px",
-    fontSize: type.small,
-  };
-
   const statusLook = {
-    queued: { color: colors.accent, text: "Queued", live: true },
-    running: { color: colors.accent, text: "Running", live: true },
-    completed: { color: colors.text, text: "Completed", live: false },
-    failed: { color: colors.danger, text: "Failed", live: false },
-    timeout: { color: colors.danger, text: "Timed out", live: false },
-  }[jobStatus] || { color: colors.textMuted, text: jobStatus || "", live: false };
+    queued: { color: colors.accent, text: "Queued" },
+    running: { color: colors.accent, text: "Running" },
+    completed: { color: colors.text, text: "Completed" },
+    failed: { color: colors.danger, text: "Failed" },
+    timeout: { color: colors.danger, text: "Timed out" },
+  }[jobStatus] || { color: colors.textMuted, text: jobStatus || "" };
 
   const historyColumns = "22px 48px 170px minmax(140px, 1fr) 60px 90px 90px";
 
@@ -501,15 +492,8 @@ export default function App() {
                 <button
                   onClick={() => setError(null)}
                   aria-label="Dismiss error"
-                  style={{
-                    background: "transparent",
-                    border: "none",
-                    color: colors.textMuted,
-                    cursor: "pointer",
-                    fontSize: 16,
-                    lineHeight: 1,
-                    padding: 0,
-                  }}
+                  className="btn-bare"
+                  style={{ color: colors.textMuted, fontSize: type.heading, lineHeight: 1 }}
                 >
                   ×
                 </button>
@@ -535,7 +519,7 @@ export default function App() {
                   }}
                   placeholder="https://example.com/api/endpoint"
                 />
-                <button onClick={analyzeUrl} style={{ ...withDisabled(btnStyle, analyzing), marginTop: 0 }} disabled={analyzing}>
+                <button onClick={analyzeUrl} className="btn btn-primary" disabled={analyzing}>
                   {analyzing ? "Analyzing…" : "Analyze"}
                 </button>
               </div>
@@ -584,7 +568,12 @@ export default function App() {
                   value={sampleInputText}
                   onChange={(e) => setSampleInputText(e.target.value)}
                 />
-                <button onClick={generateEdgeCases} style={withDisabled(btnStyle, generating)} disabled={generating}>
+                <button
+                  onClick={generateEdgeCases}
+                  className="btn btn-primary"
+                  style={{ marginTop: space.sm }}
+                  disabled={generating}
+                >
                   {generating ? "Generating…" : "Generate edge cases"}
                 </button>
               </Section>
@@ -599,13 +588,13 @@ export default function App() {
                 state={stateOf(3)}
               >
                 <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: space.sm, marginBottom: space.sm }}>
-                  <button onClick={() => setAllCases(true)} style={smallBtnStyle}>
+                  <button onClick={() => setAllCases(true)} className="btn btn-secondary btn-small">
                     Select all
                   </button>
-                  <button onClick={() => setAllCases(false)} style={smallBtnStyle}>
+                  <button onClick={() => setAllCases(false)} className="btn btn-secondary btn-small">
                     Select none
                   </button>
-                  <span style={{ marginLeft: "auto", fontSize: type.label, color: colors.textMuted, fontFamily: font.mono }}>
+                  <span style={{ marginLeft: "auto", fontSize: type.meta, color: colors.textMuted, fontFamily: font.mono }}>
                     {selectedCount} of {allCases.length} selected
                   </span>
                 </div>
@@ -617,6 +606,7 @@ export default function App() {
                     border: `1px solid ${colors.border}`,
                     borderRadius: radius.md,
                     background: colors.inset,
+                    isolation: "isolate",
                   }}
                 >
                   {caseCategories.map((cat) => {
@@ -630,11 +620,11 @@ export default function App() {
                           style={{
                             position: "sticky",
                             top: 0,
-                            zIndex: 1,
+                            zIndex: z.local,
                             display: "flex",
                             alignItems: "center",
                             gap: space.sm,
-                            padding: `6px ${space.md}px`,
+                            padding: `${space.sm}px ${space.md}px`,
                             background: colors.surfaceRaised,
                             borderBottom: `1px solid ${colors.borderSubtle}`,
                             cursor: "pointer",
@@ -650,18 +640,19 @@ export default function App() {
                             onChange={() => toggleCategory(cat)}
                           />
                           <span style={{ fontWeight: 600, fontSize: type.body }}>{CASE_CATEGORY_LABELS[cat] || cat}</span>
-                          <span style={{ fontFamily: font.mono, fontSize: type.label, color: colors.textMuted }}>
+                          <span style={{ fontFamily: font.mono, fontSize: type.meta, color: colors.textMuted }}>
                             {onCount}/{inCategory.length}
                           </span>
                         </label>
                         {inCategory.map((c) => (
                           <label
                             key={c.label}
+                            className="row-interactive"
                             style={{
                               display: "flex",
                               alignItems: "baseline",
                               gap: space.sm,
-                              padding: `5px ${space.md}px 5px ${space.xl + space.sm}px`,
+                              padding: `${space.xs}px ${space.md}px ${space.xs}px ${space.xxl}px`,
                               fontSize: type.body,
                               cursor: "pointer",
                               borderBottom: `1px solid ${colors.borderSubtle}`,
@@ -674,7 +665,7 @@ export default function App() {
                               style={{ transform: "translateY(2px)" }}
                             />
                             <span style={{ flex: 1, color: colors.text }}>{c.description}</span>
-                            <span style={{ fontFamily: font.mono, fontSize: 11.5, color: colors.textFaint }}>
+                            <span style={{ fontFamily: font.mono, fontSize: type.meta, color: colors.textFaint }}>
                               {c.label}
                             </span>
                             {c.isCustom && (
@@ -684,14 +675,8 @@ export default function App() {
                                   removeCustomCase(c.label);
                                 }}
                                 aria-label={`Remove custom case ${c.label}`}
-                                style={{
-                                  background: "transparent",
-                                  border: "none",
-                                  color: colors.textMuted,
-                                  cursor: "pointer",
-                                  fontSize: 15,
-                                  padding: "0 2px",
-                                }}
+                                className="btn-bare"
+                                style={{ color: colors.textMuted, fontSize: type.heading, padding: `0 ${space.xs}px` }}
                               >
                                 ×
                               </button>
@@ -708,7 +693,7 @@ export default function App() {
                     Add your own case
                   </summary>
                   <div style={{ marginTop: space.sm, display: "grid", gap: space.sm }}>
-                    <p style={{ fontSize: type.small, color: colors.textMuted, margin: 0 }}>
+                    <p style={{ fontSize: type.meta, color: colors.textMuted, margin: 0 }}>
                       Give it a label (lowercase letters, digits, _) and the JSON body to send. It must
                       differ from the sample request.
                     </p>
@@ -734,14 +719,14 @@ export default function App() {
                       />
                     </div>
                     <div>
-                      <button onClick={validateCustomCase} style={{ ...secondaryBtnStyle, marginTop: 0 }}>
+                      <button onClick={validateCustomCase} className="btn btn-secondary">
                         Validate and add
                       </button>
                     </div>
                     {customMessage && (
                       <div
                         role="status"
-                        style={{ fontSize: type.small, color: customMessage.ok ? colors.success : colors.danger }}
+                        style={{ fontSize: type.meta, color: customMessage.ok ? colors.success : colors.danger }}
                       >
                         {customMessage.text}
                       </div>
@@ -758,7 +743,12 @@ export default function App() {
                   onDurationChange={setTestDuration}
                 />
 
-                <button onClick={confirmAndStart} style={withDisabled(btnStyle, testRunning)} disabled={testRunning}>
+                <button
+                  onClick={confirmAndStart}
+                  className="btn btn-primary"
+                  style={{ marginTop: space.sm }}
+                  disabled={testRunning}
+                >
                   {testRunning ? "Test in progress…" : "Confirm selection and start load test"}
                 </button>
               </Section>
@@ -773,7 +763,7 @@ export default function App() {
                 state={stateOf(4)}
               >
                 <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: space.md }}>
-                  <span style={{ fontSize: type.small, color: colors.textMuted }}>
+                  <span style={{ fontSize: type.meta, color: colors.textMuted }}>
                     Run <span style={{ fontFamily: font.mono, color: colors.text }}>{jobId}</span>
                   </span>
                   {jobResult?.child_jobs?.length > 1 && (
@@ -783,8 +773,8 @@ export default function App() {
                         border: `1px solid ${colors.accent}`,
                         color: colors.accent,
                         fontFamily: font.mono,
-                        fontSize: 11.5,
-                        padding: "1px 8px",
+                        fontSize: type.meta,
+                        padding: `0 ${space.sm}px`, lineHeight: "20px",
                         borderRadius: radius.sm,
                         whiteSpace: "nowrap",
                       }}
@@ -804,10 +794,7 @@ export default function App() {
                       fontWeight: 600,
                     }}
                   >
-                    <span
-                      className={statusLook.live ? "pulse" : undefined}
-                      style={{ width: 8, height: 8, borderRadius: "50%", background: statusLook.color }}
-                    />
+                    <span style={{ width: 8, height: 8, borderRadius: "50%", background: statusLook.color }} />
                     {statusLook.text}
                   </span>
                 </div>
@@ -829,15 +816,11 @@ export default function App() {
                       }}
                     >
                       <div
-                        style={{
-                          width: `${Math.min((elapsedSec / runDuration) * 100, 100)}%`,
-                          height: "100%",
-                          background: colors.accent,
-                          transition: "width 0.5s linear",
-                        }}
+                        className="progress-fill"
+                        style={{ transform: `scaleX(${Math.min(elapsedSec / runDuration, 1)})` }}
                       />
                     </div>
-                    <div style={{ fontSize: type.label, color: colors.textMuted, fontFamily: font.mono }}>
+                    <div style={{ fontSize: type.meta, color: colors.textMuted, fontFamily: font.mono }}>
                       {elapsedSec}s elapsed of about {runDuration}s. This is an estimate: ramp-up and
                       teardown add a few seconds.
                     </div>
@@ -845,7 +828,7 @@ export default function App() {
                 )}
 
                 {websitePathsUsed && (
-                  <p style={{ fontSize: type.small, color: colors.textMuted, fontFamily: font.mono, marginBottom: 0 }}>
+                  <p style={{ fontSize: type.meta, color: colors.textMuted, fontFamily: font.mono, marginBottom: 0 }}>
                     Pages tested: {websitePathsUsed.join(", ")}
                   </p>
                 )}
@@ -892,9 +875,9 @@ export default function App() {
                         display: "grid",
                         gridTemplateColumns: historyColumns,
                         gap: space.sm,
-                        padding: `6px ${space.md}px`,
+                        padding: `${space.sm}px ${space.md}px`,
                         fontFamily: font.mono,
-                        fontSize: 11.5,
+                        fontSize: type.meta,
                         color: colors.textMuted,
                         borderBottom: `1px solid ${colors.border}`,
                       }}
@@ -915,16 +898,17 @@ export default function App() {
                         return (
                           <label
                             key={j.id}
+                            className="row-interactive"
                             style={{
                               display: "grid",
                               gridTemplateColumns: historyColumns,
                               gap: space.sm,
                               alignItems: "center",
-                              padding: `5px ${space.md}px`,
+                              padding: `${space.xs}px ${space.md}px`,
                               fontFamily: font.mono,
-                              fontSize: type.label,
+                              fontSize: type.meta,
                               color: full ? colors.textFaint : colors.text,
-                              background: checked ? colors.accentSoft : "transparent",
+                              background: checked ? colors.accentSoft : undefined,
                               borderBottom: `1px solid ${colors.borderSubtle}`,
                               cursor: full ? "not-allowed" : "pointer",
                             }}
@@ -955,17 +939,17 @@ export default function App() {
                 <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: space.md, marginTop: space.md }}>
                   <button
                     onClick={runComparison}
-                    style={{ ...withDisabled(btnStyle, compareIds.length < 2 || comparing), marginTop: 0 }}
+                    className="btn btn-primary"
                     disabled={compareIds.length < 2 || comparing}
                   >
                     {comparing ? "Comparing…" : "Compare"}
                   </button>
-                  <span style={{ fontSize: type.small, color: colors.textMuted }}>
+                  <span style={{ fontSize: type.meta, color: colors.textMuted }}>
                     {compareIds.length} selected
                     {compareIds.length < 2 && ". Select at least 2 runs to compare."}
                     {compareIds.length === 4 && ". That's the maximum of 4."}
                   </span>
-                  <button onClick={refreshJobHistory} style={{ ...linkBtnStyle, marginLeft: "auto" }}>
+                  <button onClick={refreshJobHistory} className="btn-link" style={{ marginLeft: "auto" }}>
                     Refresh list
                   </button>
                 </div>

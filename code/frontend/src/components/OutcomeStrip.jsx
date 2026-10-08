@@ -40,7 +40,7 @@ export default function OutcomeStrip({ requests, kindCounts, failureTotal, size 
           {segments.map((s) => (
             <span
               key={s.key}
-              style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: type.small, color: colors.textMuted }}
+              style={{ display: "inline-flex", alignItems: "center", gap: space.sm, fontSize: type.meta, color: colors.textMuted }}
             >
               <span style={{ width: 8, height: 8, borderRadius: 2, background: outcome[s.key].fg }} />
               {outcome[s.key].label}

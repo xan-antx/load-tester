@@ -48,7 +48,7 @@ export default function AppHeader({ apiBase }) {
         <h1 style={{ margin: 0, fontSize: type.title, fontWeight: 600, letterSpacing: "0.01em" }}>
           Elevate Load Tester
         </h1>
-        <span className="header-tagline" style={{ fontSize: type.small, color: colors.textMuted }}>
+        <span className="header-tagline" style={{ fontSize: type.meta, color: colors.textMuted }}>
           Finds the inputs your API mishandles, and the load at which it starts to fail.
         </span>
       </div>
@@ -61,7 +61,7 @@ export default function AppHeader({ apiBase }) {
           alignItems: "center",
           gap: space.sm,
           fontFamily: font.mono,
-          fontSize: type.label,
+          fontSize: type.meta,
           color: health === "offline" ? colors.danger : colors.textMuted,
           whiteSpace: "nowrap",
         }}

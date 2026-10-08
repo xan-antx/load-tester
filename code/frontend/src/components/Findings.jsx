@@ -14,9 +14,9 @@ export default function Findings({ findings }) {
       <h3 style={{ margin: `0 0 ${space.sm}px`, fontSize: type.body, fontWeight: 600, color: colors.text }}>
         Findings
       </h3>
-      <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: 6 }}>
+      <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: space.sm }}>
         {findings.map((f) => (
-          <li key={f.text} style={{ display: "flex", alignItems: "baseline", gap: space.sm, fontSize: 15, color: colors.text }}>
+          <li key={f.text} style={{ display: "flex", alignItems: "baseline", gap: space.sm, fontSize: type.heading, color: colors.text }}>
             <span
               aria-hidden="true"
               style={{

@@ -70,15 +70,16 @@ export const font = {
   mono: `"IBM Plex Mono", ui-monospace, "Cascadia Mono", "SF Mono", Menlo, Consolas, monospace`,
 };
 
+// Five sizes only; hierarchy comes from weight and colour before size.
 export const type = {
+  meta: 12,    // mono labels, captions, chips, table headers
+  body: 14,    // UI text and table data
+  heading: 16, // step titles, findings
   title: 22,   // app name
-  heading: 17, // step titles
-  body: 14,
-  small: 12.5,
-  label: 12,   // mono labels
-  readout: 26, // big numbers
+  readout: 28, // big numbers
 };
 
+// 4px base scale. Gaps inside a group are smaller than gaps between groups.
 export const space = {
   xs: 4,
   sm: 8,
@@ -87,3 +88,29 @@ export const space = {
   xl: 24,
   xxl: 32,
 };
+
+// The only z-index values in the app. "local" is used inside components
+// that create their own stacking context (isolation: isolate).
+export const z = {
+  local: 1,
+  sticky: 10,
+};
+
+export const motion = {
+  fast: "150ms", // hover and press feedback
+  base: "200ms", // progress and state changes
+};
+
+const kebab = (key) => key.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`);
+
+// Publishes the tokens as CSS custom properties (--c-accent, --font-mono, …)
+// so index.css can style states like :hover without its own colour values.
+export function applyTheme(root = document.documentElement) {
+  Object.entries(colors).forEach(([k, v]) => root.style.setProperty(`--c-${kebab(k)}`, v));
+  Object.entries(font).forEach(([k, v]) => root.style.setProperty(`--font-${k}`, v));
+  Object.entries(type).forEach(([k, v]) => root.style.setProperty(`--type-${k}`, `${v}px`));
+  Object.entries(space).forEach(([k, v]) => root.style.setProperty(`--space-${k}`, `${v}px`));
+  Object.entries(radius).forEach(([k, v]) => root.style.setProperty(`--radius-${k}`, `${v}px`));
+  Object.entries(z).forEach(([k, v]) => root.style.setProperty(`--z-${k}`, String(v)));
+  Object.entries(motion).forEach(([k, v]) => root.style.setProperty(`--motion-${k}`, v));
+}
