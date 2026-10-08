@@ -4,7 +4,7 @@ import AnalyzeSummary from "./components/AnalyzeSummary";
 import JobResultSummary from "./components/JobResultSummary";
 import CompareView from "./components/CompareView";
 import WebsiteLoadTestSection from "./components/WebsiteLoadTestSection";
-import LoadTestConfig from "./components/LoadTestConfig";
+import LoadTestConfig, { LIMITS, clampInt } from "./components/LoadTestConfig";
 import RunActions from "./components/RunActions";
 import { colors, font, space, radius } from "./theme";
 import { formatTime } from "./utils/formatTime";
@@ -43,7 +43,7 @@ function StepDot({ n, label, complete, available, targetId }) {
 }
 
 export default function App() {
-  const [url, setUrl] = useState("https://httpbin.org/post");
+  const [url, setUrl] = useState("https://dummyjson.com/auth/login");
   const [analyzeResult, setAnalyzeResult] = useState(null);
   const [isApi, setIsApi] = useState(false);
   const [isWebsite, setIsWebsite] = useState(false);
@@ -51,7 +51,7 @@ export default function App() {
   const [showRawAnalyze, setShowRawAnalyze] = useState(false);
 
   const [sampleInputText, setSampleInputText] = useState(
-    '{"username": "john_doe", "age": 25}'
+    '{"username": "emilys", "password": "emilyspass", "expiresInMins": 30}'
   );
   const [sampleInput, setSampleInput] = useState(null);
   const [cases, setCases] = useState([]);
@@ -65,7 +65,8 @@ export default function App() {
 
   const [testUsers, setTestUsers] = useState(3);
   const [testSpawnRate, setTestSpawnRate] = useState(1);
-  const [testDuration, setTestDuration] = useState(10);
+  // 30 s by default: shorter runs give too few requests per case to compare.
+  const [testDuration, setTestDuration] = useState(30);
 
   const [jobId, setJobId] = useState(null);
   const [runStartedAt, setRunStartedAt] = useState(null);
@@ -290,6 +291,16 @@ export default function App() {
   const selectedCount = allCases.filter((c) => selected[c.label]).length;
   const caseCategories = [...new Set(allCases.map((c) => c.category))];
 
+  // The fields commit on blur/Enter; clamp once more here so the start
+  // requests always carry whole numbers inside the allowed ranges.
+  function runSettings() {
+    return {
+      users: clampInt(testUsers, LIMITS.users),
+      spawnRate: clampInt(testSpawnRate, LIMITS.spawnRate),
+      duration: clampInt(testDuration, LIMITS.duration),
+    };
+  }
+
   async function confirmAndStart() {
     if (testRunning) return;
     setError(null);
@@ -319,15 +330,16 @@ export default function App() {
       return;
     }
 
+    const settings = runSettings();
     const startResp = await fetch(`${BASE}/api/start-load-test`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         url,
         confirmed_cases: confirmData.confirmed_cases,
-        users: testUsers,
-        spawn_rate: testSpawnRate,
-        duration_seconds: testDuration,
+        users: settings.users,
+        spawn_rate: settings.spawnRate,
+        duration_seconds: settings.duration,
       }),
     });
     const startData = await startResp.json();
@@ -339,7 +351,7 @@ export default function App() {
     setWebsitePathsUsed(null);
     setJobId(startData.job_id);
     setRunStartedAt(Date.now());
-    setRunDuration(testDuration);
+    setRunDuration(settings.duration);
     setElapsedSec(0);
     setJobStatus("queued");
     setJobResult(null);
@@ -350,6 +362,7 @@ export default function App() {
     if (testRunning) return;
     setError(null);
     setStartingWebsiteTest(true);
+    const settings = runSettings();
     try {
       const resp = await fetch(`${BASE}/api/start-website-load-test`, {
         method: "POST",
@@ -357,9 +370,9 @@ export default function App() {
         body: JSON.stringify({
           url,
           sitemap_raw: sitemapRaw,
-          users: testUsers,
-          spawn_rate: testSpawnRate,
-          duration_seconds: testDuration,
+          users: settings.users,
+          spawn_rate: settings.spawnRate,
+          duration_seconds: settings.duration,
         }),
       });
       const data = await resp.json();
@@ -371,7 +384,7 @@ export default function App() {
       setWebsitePathsUsed(data.paths_used || []);
       setJobId(data.job_id);
       setRunStartedAt(Date.now());
-      setRunDuration(testDuration);
+      setRunDuration(settings.duration);
       setElapsedSec(0);
       setJobStatus("queued");
       setJobResult(null);
@@ -451,7 +464,7 @@ export default function App() {
     <div
       style={{
         fontFamily: font.sans,
-        maxWidth: 720,
+        maxWidth: 1080,
         margin: "0 auto",
         padding: `${space.xxl}px ${space.xl}px`,
         color: colors.text,

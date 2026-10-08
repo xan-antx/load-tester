@@ -4,7 +4,8 @@ import { thStyle, tdStyle } from "./Section";
 import { colors, font, space, radius } from "../theme";
 
 // Drawing area inside each SVG (viewBox units; the SVG scales to its box).
-const W = 640;
+// Roughly the panel's real width in the 1080px layout, so text stays ~10px.
+const W = 960;
 const PAD = { left: 44, right: 12, top: 8, bottom: 8 };
 const X_AXIS_HEIGHT = 30;
 

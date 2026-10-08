@@ -16,6 +16,8 @@ export const colors = {
   series1: "#3987e5",
   series2: "#d95926",
   grid: "#232B36",
+  // Scrollbar thumb; index.css mirrors this value (CSS can't import JS).
+  scrollbarThumb: "#3A4350",
   // translucent fills for badges, banners, and bar tracks
   accentSoft: "rgba(45, 212, 191, 0.12)",
   successSoft: "rgba(63, 185, 80, 0.12)",

@@ -28,11 +28,35 @@ input, textarea, select, button {
   outline-offset: 2px;
 }
 
-/* Sticky step rail: vertical beside the 720px column on wide screens,
-   horizontal bar pinned to the top on narrow ones (colors mirror theme.js) */
+/* Dark scrollbars everywhere (colors mirror theme.js: bg, scrollbarThumb,
+   textMuted). Firefox/new Chrome use the first two properties; older
+   Chromium/Safari use the ::-webkit-scrollbar rules. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #3A4350 #0F1419;
+}
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-corner {
+  background: #0F1419;
+}
+::-webkit-scrollbar-thumb {
+  background: #3A4350;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #8B98A5;
+}
+
+/* Sticky step rail: vertical beside the 1080px column on wide screens,
+   horizontal bar pinned to the top when there is no room beside it
+   (colors mirror theme.js) */
 .step-rail {
   position: fixed;
-  left: max(12px, calc(50% - 360px - 72px));
+  left: max(12px, calc(50% - 540px - 72px));
   top: 50%;
   transform: translateY(-50%);
   display: flex;
@@ -40,7 +64,7 @@ input, textarea, select, button {
   gap: 10px;
   z-index: 10;
 }
-@media (max-width: 919px) {
+@media (max-width: 1139px) {
   .step-rail {
     position: sticky;
     top: 0;

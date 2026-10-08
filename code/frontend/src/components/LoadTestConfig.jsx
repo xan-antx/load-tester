@@ -1,5 +1,55 @@
+import { useEffect, useState } from "react";
 import { colors, font, space } from "../theme";
 import { inputStyle as themeInputStyle } from "./Section";
+
+export const LIMITS = {
+  users: { min: 1, max: 1000 },
+  spawnRate: { min: 1, max: 20 },
+  duration: { min: 1, max: 300 },
+};
+
+// Turns whatever is in a field into a whole number inside the range.
+// Empty or non-numeric input falls back to the minimum.
+export function clampInt(value, { min, max }) {
+  const n = Math.trunc(Number(value));
+  if (value === "" || value === null || !Number.isFinite(n)) return min;
+  return Math.min(Math.max(n, min), max);
+}
+
+// The text is kept locally while typing (so the field can be empty for a
+// moment); the parent only receives a clamped integer on blur or Enter.
+function NumberField({ label, value, limits, onCommit }) {
+  const [text, setText] = useState(String(value));
+
+  // Both config blocks share the same parent value; follow it when it changes.
+  useEffect(() => {
+    setText(String(value));
+  }, [value]);
+
+  function commit() {
+    const n = clampInt(text, limits);
+    setText(String(n));
+    onCommit(n);
+  }
+
+  return (
+    <div style={{ flex: 1 }}>
+      <label style={labelStyle}>{label}</label>
+      <input
+        type="number"
+        min={limits.min}
+        max={limits.max}
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") commit();
+        }}
+        style={inputStyle}
+      />
+    </div>
+  );
+}
 
 export default function LoadTestConfig({
   users,
@@ -11,46 +61,11 @@ export default function LoadTestConfig({
 }) {
   return (
     <div style={{ display: "flex", gap: space.sm, marginTop: space.md, marginBottom: space.sm }}>
-      <div style={{ flex: 1 }}>
-        <label style={labelStyle}>Users (1-1000)</label>
-        <input
-          type="number"
-          min={1}
-          max={1000}
-          value={users}
-          onChange={(e) => onUsersChange(clamp(Number(e.target.value), 1, 1000))}
-          style={inputStyle}
-        />
-      </div>
-      <div style={{ flex: 1 }}>
-        <label style={labelStyle}>Spawn Rate (1-20)</label>
-        <input
-          type="number"
-          min={1}
-          max={20}
-          value={spawnRate}
-          onChange={(e) => onSpawnRateChange(clamp(Number(e.target.value), 1, 20))}
-          style={inputStyle}
-        />
-      </div>
-      <div style={{ flex: 1 }}>
-        <label style={labelStyle}>Duration in seconds (1-300)</label>
-        <input
-          type="number"
-          min={1}
-          max={300}
-          value={duration}
-          onChange={(e) => onDurationChange(clamp(Number(e.target.value), 1, 300))}
-          style={inputStyle}
-        />
-      </div>
+      <NumberField label="Users (1-1000)" value={users} limits={LIMITS.users} onCommit={onUsersChange} />
+      <NumberField label="Spawn Rate (1-20)" value={spawnRate} limits={LIMITS.spawnRate} onCommit={onSpawnRateChange} />
+      <NumberField label="Duration in seconds (1-300)" value={duration} limits={LIMITS.duration} onCommit={onDurationChange} />
     </div>
   );
-}
-
-function clamp(value, min, max) {
-  if (Number.isNaN(value)) return min;
-  return Math.min(Math.max(value, min), max);
 }
 
 const labelStyle = {
