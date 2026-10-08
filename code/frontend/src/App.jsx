@@ -1,46 +1,29 @@
 import { useState, useEffect } from "react";
-import Section, { btnStyle, inputStyle } from "./components/Section";
+import Section, {
+  btnStyle, secondaryBtnStyle, linkBtnStyle, inputStyle, labelStyle, withDisabled,
+} from "./components/Section";
 import AnalyzeSummary from "./components/AnalyzeSummary";
 import JobResultSummary from "./components/JobResultSummary";
 import CompareView from "./components/CompareView";
 import WebsiteLoadTestSection from "./components/WebsiteLoadTestSection";
 import LoadTestConfig, { LIMITS, clampInt } from "./components/LoadTestConfig";
 import RunActions from "./components/RunActions";
-import { colors, font, space, radius } from "./theme";
+import AppHeader from "./components/AppHeader";
+import StepRail from "./components/StepRail";
+import { colors, font, space, radius, type } from "./theme";
 import { formatTime } from "./utils/formatTime";
 
 const BASE = import.meta.env.VITE_API_BASE || "http://localhost:5000";
 
-// Navigation-only step indicator: scrolls to sections, never hides them.
-function StepDot({ n, label, complete, available, targetId }) {
-  return (
-    <button
-      onClick={() =>
-        available &&
-        document.getElementById(targetId)?.scrollIntoView({ behavior: "smooth", block: "start" })
-      }
-      title={`${n}. ${label}${complete ? " — done" : available ? "" : " — not reached yet"}`}
-      aria-label={`Go to step ${n}: ${label}`}
-      disabled={!available}
-      style={{
-        width: 28,
-        height: 28,
-        borderRadius: "50%",
-        border: `1px solid ${complete ? colors.accent : colors.border}`,
-        background: complete ? colors.accentSoft : colors.surface,
-        color: complete ? colors.accent : available ? colors.text : colors.textMuted,
-        fontSize: 12,
-        fontWeight: 600,
-        fontFamily: font.mono,
-        cursor: available ? "pointer" : "default",
-        opacity: available || complete ? 1 : 0.45,
-        padding: 0,
-      }}
-    >
-      {complete ? "✓" : n}
-    </button>
-  );
-}
+// Section 3 groups the selectable cases under these headings.
+const CASE_CATEGORY_LABELS = {
+  missing_field: "Missing field",
+  null_value: "Null value",
+  type_mismatch: "Type mismatch",
+  boundary_value: "Boundary value",
+  known_attack: "Known attack",
+  custom: "Your own cases",
+};
 
 export default function App() {
   const [url, setUrl] = useState("https://dummyjson.com/auth/login");
@@ -88,6 +71,8 @@ export default function App() {
 
   const [error, setError] = useState(null);
   const [analyzing, setAnalyzing] = useState(false);
+  const [generating, setGenerating] = useState(false);
+  const [comparing, setComparing] = useState(false);
   const [startingWebsiteTest, setStartingWebsiteTest] = useState(false);
 
   useEffect(() => {
@@ -200,23 +185,28 @@ export default function App() {
     }
     setSampleInput(parsed);
 
-    const resp = await fetch(`${BASE}/api/generate-edge-cases`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ sample_input: parsed }),
-    });
-    const data = await resp.json();
-    if (!resp.ok) {
-      setError(JSON.stringify(data));
-      return;
+    setGenerating(true);
+    try {
+      const resp = await fetch(`${BASE}/api/generate-edge-cases`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sample_input: parsed }),
+      });
+      const data = await resp.json();
+      if (!resp.ok) {
+        setError(JSON.stringify(data));
+        return;
+      }
+      setCases(data.cases);
+      const defaults = {};
+      data.cases.forEach((c) => (defaults[c.label] = true));
+      setSelected(defaults);
+      // Custom cases were checked against the previous sample, so drop them.
+      setCustomCases([]);
+      setCustomMessage(null);
+    } finally {
+      setGenerating(false);
     }
-    setCases(data.cases);
-    const defaults = {};
-    data.cases.forEach((c) => (defaults[c.label] = true));
-    setSelected(defaults);
-    // Custom cases were checked against the previous sample, so drop them.
-    setCustomCases([]);
-    setCustomMessage(null);
   }
 
   // Generated cases plus the user's own, shown together in section 3.
@@ -423,480 +413,571 @@ export default function App() {
       setError("Pick 2 to 4 runs to compare");
       return;
     }
-    const resp = await fetch(`${BASE}/api/compare-jobs`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ job_ids: compareIds }),
-    });
-    const data = await resp.json();
-    if (!resp.ok) {
-      setError(data.error || "Could not compare those runs");
-      return;
+    setComparing(true);
+    try {
+      const resp = await fetch(`${BASE}/api/compare-jobs`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ job_ids: compareIds }),
+      });
+      const data = await resp.json();
+      if (!resp.ok) {
+        setError(data.error || "Could not compare those runs");
+        return;
+      }
+      setCompareResult(data);
+    } finally {
+      setComparing(false);
     }
-    setCompareResult(data);
   }
 
   // Guards against starting a second job while one is polling: two concurrent
   // pollStatus loops would both write jobStatus/jobResult and clobber each other.
   const testRunning = jobStatus === "queued" || jobStatus === "running";
 
-  const bulkBtnStyle = {
-    padding: "4px 12px",
-    fontSize: 12,
-    fontWeight: 600,
-    background: "transparent",
-    color: colors.accent,
-    border: `1px solid ${colors.border}`,
-    borderRadius: radius.sm,
-    cursor: "pointer",
+  // ---- Presentation ------------------------------------------------------
+
+  // Workflow steps for the rail and the step panels. The active step is the
+  // first one that can be done now but isn't done yet.
+  const stepDefs = [
+    { n: 1, label: "Target", complete: analyzeResult != null, available: true, skipped: false },
+    { n: 2, label: "Sample request", complete: cases.length > 0, available: isApi, skipped: isWebsite },
+    { n: 3, label: "Cases and load", complete: jobId != null, available: cases.length > 0, skipped: isWebsite },
+    { n: 4, label: "Run and results", complete: jobResult != null, available: jobId != null, skipped: false },
+    { n: 5, label: "Compare runs", complete: compareResult != null, available: jobHistory.length > 0, skipped: false },
+  ];
+  const activeStep = stepDefs.find((s) => s.available && !s.complete && !s.skipped)?.n;
+  const steps = stepDefs.map((s) => ({
+    ...s,
+    targetId: `step-${s.n}`,
+    state: s.skipped ? "skipped" : s.complete ? "done" : s.n === activeStep ? "active" : "pending",
+  }));
+  const stateOf = (n) => steps[n - 1].state;
+
+  const smallBtnStyle = {
+    ...secondaryBtnStyle,
+    marginTop: 0,
+    padding: "4px 10px",
+    fontSize: type.small,
   };
 
-  const statusColors = {
-    queued: colors.textMuted,
-    running: colors.warning,
-    completed: colors.success,
-    failed: colors.danger,
-    timeout: colors.danger,
-  };
-  const statusColor = statusColors[jobStatus] || colors.textMuted;
+  const statusLook = {
+    queued: { color: colors.accent, text: "Queued", live: true },
+    running: { color: colors.accent, text: "Running", live: true },
+    completed: { color: colors.text, text: "Completed", live: false },
+    failed: { color: colors.danger, text: "Failed", live: false },
+    timeout: { color: colors.danger, text: "Timed out", live: false },
+  }[jobStatus] || { color: colors.textMuted, text: jobStatus || "", live: false };
+
+  const historyColumns = "22px 48px 170px minmax(140px, 1fr) 60px 90px 90px";
 
   return (
-    <div
-      style={{
-        fontFamily: font.sans,
-        maxWidth: 1080,
-        margin: "0 auto",
-        padding: `${space.xxl}px ${space.xl}px`,
-        color: colors.text,
-      }}
-    >
-      <nav className="step-rail" aria-label="Workflow steps">
-        {[
-          { n: 1, label: "Enter target", complete: analyzeResult != null, available: true, targetId: "step-1" },
-          { n: 2, label: "Sample input", complete: cases.length > 0, available: isApi, targetId: "step-2" },
-          { n: 3, label: "Select edge cases", complete: jobId != null, available: cases.length > 0, targetId: "step-3" },
-          { n: 4, label: "Load test status", complete: jobResult != null, available: jobId != null, targetId: "step-4" },
-          { n: 5, label: "Compare past runs", complete: compareResult != null, available: jobHistory.length > 0, targetId: "step-5" },
-        ].map((s) => (
-          <StepDot key={s.n} {...s} />
-        ))}
-      </nav>
+    <div style={{ fontFamily: font.sans, color: colors.text }}>
+      <div className="app-frame">
+        <AppHeader apiBase={BASE} />
 
-      <h1 style={{ fontSize: 28, fontWeight: 700, letterSpacing: "-0.02em", marginBottom: space.xs }}>
-        Elevate Load Tester
-      </h1>
-      <p style={{ color: colors.textMuted, fontSize: 14, marginTop: 0, marginBottom: space.xl }}>
-        Analyze a target, generate edge cases or crawl its pages, then run an async load test.
-      </p>
+        <div className="app-shell">
+          <StepRail steps={steps} />
 
-      {error && (
-        <div
-          style={{
-            display: "flex",
-            alignItems: "flex-start",
-            gap: space.sm,
-            background: colors.dangerSoft,
-            border: `1px solid ${colors.danger}`,
-            color: colors.danger,
-            padding: `${space.sm}px ${space.md}px`,
-            borderRadius: radius.md,
-            marginBottom: space.lg,
-            fontSize: 13,
-          }}
-        >
-          <span style={{ flex: 1 }}>{error}</span>
-          <button
-            onClick={() => setError(null)}
-            aria-label="Dismiss error"
-            style={{
-              background: "transparent",
-              border: "none",
-              color: colors.danger,
-              cursor: "pointer",
-              fontSize: 15,
-              lineHeight: 1,
-              padding: 0,
-            }}
-          >
-            ×
-          </button>
-        </div>
-      )}
-
-      <Section id="step-1" title="1. Enter target">
-        <input
-          style={inputStyle}
-          value={url}
-          onChange={(e) => setUrl(e.target.value)}
-          placeholder="https://example.com/api/endpoint"
-        />
-        <button onClick={analyzeUrl} style={btnStyle} disabled={analyzing}>
-          {analyzing ? "Analyzing…" : "Analyze"}
-        </button>
-
-        {analyzeResult && (
-          <AnalyzeSummary
-            data={analyzeResult}
-            showRaw={showRawAnalyze}
-            onToggleRaw={() => setShowRawAnalyze((v) => !v)}
-          />
-        )}
-
-        {isWebsite && (
-          <>
-            <LoadTestConfig
-              users={testUsers}
-              spawnRate={testSpawnRate}
-              duration={testDuration}
-              onUsersChange={setTestUsers}
-              onSpawnRateChange={setTestSpawnRate}
-              onDurationChange={setTestDuration}
-            />
-            <WebsiteLoadTestSection
-              sitemapRaw={sitemapRaw}
-              onStart={startWebsiteLoadTest}
-              starting={startingWebsiteTest}
-              testRunning={testRunning}
-            />
-          </>
-        )}
-      </Section>
-
-      {isApi && (
-        <Section id="step-2" title="2. Sample input for API targets">
-          <p style={{ color: colors.textMuted, fontSize: 13.5, marginTop: 0 }}>
-            Paste a sample JSON body this API expects
-          </p>
-          <textarea
-            rows={4}
-            style={{ ...inputStyle, resize: "vertical" }}
-            value={sampleInputText}
-            onChange={(e) => setSampleInputText(e.target.value)}
-          />
-          <button onClick={generateEdgeCases} style={btnStyle}>Generate edge cases</button>
-        </Section>
-      )}
-
-      {cases.length > 0 && (
-        <Section id="step-3" title="3. Select edge cases">
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              flexWrap: "wrap",
-              gap: space.sm,
-              marginBottom: space.sm,
-            }}
-          >
-            <button onClick={() => setAllCases(true)} style={bulkBtnStyle}>
-              Select all
-            </button>
-            <button onClick={() => setAllCases(false)} style={bulkBtnStyle}>
-              Select none
-            </button>
-            <span style={{ marginLeft: "auto", fontSize: 12.5, color: colors.textMuted, fontFamily: font.mono }}>
-              {selectedCount} of {allCases.length} selected
-            </span>
-          </div>
-
-          <div style={{ display: "flex", flexWrap: "wrap", gap: space.xs, marginBottom: space.sm }}>
-            {caseCategories.map((cat) => {
-              const inCategory = allCases.filter((c) => c.category === cat);
-              const onCount = inCategory.filter((c) => selected[c.label]).length;
-              const allOn = onCount === inCategory.length;
-              return (
-                <button
-                  key={cat}
-                  onClick={() => toggleCategory(cat)}
-                  title={allOn ? `Deselect all ${cat} cases` : `Select all ${cat} cases`}
-                  style={{
-                    padding: "3px 10px",
-                    fontSize: 11.5,
-                    fontFamily: font.mono,
-                    borderRadius: radius.pill,
-                    cursor: "pointer",
-                    background: allOn ? colors.accentSoft : "transparent",
-                    color: allOn ? colors.accent : colors.textMuted,
-                    border: `1px solid ${allOn ? colors.accent : colors.border}`,
-                  }}
-                >
-                  {cat} {onCount}/{inCategory.length}
-                </button>
-              );
-            })}
-          </div>
-
-          <div
-            className="case-list"
-            style={{
-              maxHeight: 360,
-              overflowY: "auto",
-              border: `1px solid ${colors.border}`,
-              borderRadius: 8,
-              padding: space.md,
-              background: colors.bg,
-            }}
-          >
-            {allCases.map((c) => (
-              <label
-                key={c.label}
-                style={{ display: "block", padding: "6px 4px", fontSize: 13.5, cursor: "pointer" }}
-              >
-                <input
-                  type="checkbox"
-                  checked={!!selected[c.label]}
-                  onChange={() => toggleCase(c.label)}
-                  style={{ marginRight: 8 }}
-                />
-                <span
-                  style={{
-                    color: c.isCustom ? colors.info : colors.accent,
-                    fontFamily: font.mono,
-                    fontSize: 11.5,
-                  }}
-                >
-                  [{c.category}]
-                </span>{" "}
-                {c.isCustom && (
-                  <span style={{ fontFamily: font.mono, fontSize: 12, color: colors.textMuted }}>
-                    {c.label}:{" "}
-                  </span>
-                )}
-                <span style={{ color: colors.text }}>{c.description}</span>
-                {c.isCustom && (
-                  <button
-                    onClick={(e) => {
-                      e.preventDefault();
-                      removeCustomCase(c.label);
-                    }}
-                    aria-label={`Remove custom case ${c.label}`}
-                    style={{
-                      marginLeft: space.sm,
-                      background: "transparent",
-                      border: "none",
-                      color: colors.textMuted,
-                      cursor: "pointer",
-                      fontSize: 14,
-                    }}
-                  >
-                    ×
-                  </button>
-                )}
-              </label>
-            ))}
-          </div>
-
-          <details style={{ marginTop: space.sm }}>
-            <summary style={{ cursor: "pointer", fontSize: 13, color: colors.accent }}>
-              Add your own case
-            </summary>
-            <div style={{ marginTop: space.sm }}>
-              <p style={{ fontSize: 12, color: colors.textMuted, marginTop: 0 }}>
-                Give it a label (lowercase letters, digits, _) and the JSON body to send. It must
-                differ from the sample input above.
-              </p>
-              <input
-                style={{ ...inputStyle, marginBottom: space.xs }}
-                placeholder="label, e.g. admin_user"
-                value={customLabel}
-                onChange={(e) => setCustomLabel(e.target.value)}
-              />
-              <textarea
-                rows={3}
-                style={{ ...inputStyle, resize: "vertical" }}
-                placeholder='{"username": "admin", "password": "demo123", "expiresInMins": 30}'
-                value={customPayloadText}
-                onChange={(e) => setCustomPayloadText(e.target.value)}
-              />
-              <button onClick={validateCustomCase} style={bulkBtnStyle}>
-                Validate and add
-              </button>
-              {customMessage && (
-                <div
-                  style={{
-                    marginTop: space.xs,
-                    fontSize: 12.5,
-                    color: customMessage.ok ? colors.success : colors.danger,
-                  }}
-                >
-                  {customMessage.text}
-                </div>
-              )}
-            </div>
-          </details>
-
-          <LoadTestConfig
-            users={testUsers}
-            spawnRate={testSpawnRate}
-            duration={testDuration}
-            onUsersChange={setTestUsers}
-            onSpawnRateChange={setTestSpawnRate}
-            onDurationChange={setTestDuration}
-          />
-
-          <button onClick={confirmAndStart} style={btnStyle} disabled={testRunning}>
-            {testRunning ? "Test in progress…" : "Confirm selection and start load test"}
-          </button>
-        </Section>
-      )}
-
-      {jobId && (
-        <Section id="step-4" title="4. Load test status">
-          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13.5, marginBottom: space.sm }}>
-            <span style={{ color: colors.textMuted }}>
-              Job <span style={{ fontFamily: font.mono, color: colors.text }}>{jobId}</span>
-            </span>
-            <span style={{ display: "flex", alignItems: "center", gap: space.sm }}>
-              {jobResult?.child_jobs?.length > 1 && (
-                <span
-                  style={{
-                    background: colors.accentSoft,
-                    color: colors.accent,
-                    fontFamily: font.mono,
-                    fontSize: 11,
-                    padding: "2px 9px",
-                    borderRadius: radius.pill,
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  Split across {jobResult.child_jobs.length} workers
-                </span>
-              )}
-              <span style={{ color: statusColor, fontWeight: 600, textTransform: "capitalize" }}>
-                {jobStatus}
-              </span>
-            </span>
-          </div>
-          {["queued", "running"].includes(jobStatus) && runDuration != null && (
-            <div style={{ marginBottom: space.md }}>
+          <main className="app-main">
+            {error && (
               <div
+                role="alert"
                 style={{
-                  height: 6,
-                  background: colors.track,
-                  borderRadius: radius.pill,
-                  overflow: "hidden",
-                  marginBottom: space.xs,
+                  display: "flex",
+                  alignItems: "flex-start",
+                  gap: space.sm,
+                  background: colors.dangerSoft,
+                  border: `1px solid ${colors.danger}`,
+                  color: colors.text,
+                  padding: `${space.sm}px ${space.md}px`,
+                  borderRadius: radius.md,
+                  marginBottom: space.md,
+                  fontSize: type.body,
                 }}
               >
+                <span aria-hidden="true" style={{ color: colors.danger, fontWeight: 600 }}>!</span>
+                <span style={{ flex: 1, wordBreak: "break-word" }}>{error}</span>
+                <button
+                  onClick={() => setError(null)}
+                  aria-label="Dismiss error"
+                  style={{
+                    background: "transparent",
+                    border: "none",
+                    color: colors.textMuted,
+                    cursor: "pointer",
+                    fontSize: 16,
+                    lineHeight: 1,
+                    padding: 0,
+                  }}
+                >
+                  ×
+                </button>
+              </div>
+            )}
+
+            <Section
+              id="step-1"
+              step={1}
+              title="Target"
+              description="Check that the URL is reachable and whether it is an API or a website."
+              state={stateOf(1)}
+            >
+              <label htmlFor="target-url" style={labelStyle}>Target URL</label>
+              <div style={{ display: "flex", gap: space.sm, flexWrap: "wrap" }}>
+                <input
+                  id="target-url"
+                  style={{ ...inputStyle, flex: "1 1 320px", width: "auto" }}
+                  value={url}
+                  onChange={(e) => setUrl(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !analyzing) analyzeUrl();
+                  }}
+                  placeholder="https://example.com/api/endpoint"
+                />
+                <button onClick={analyzeUrl} style={{ ...withDisabled(btnStyle, analyzing), marginTop: 0 }} disabled={analyzing}>
+                  {analyzing ? "Analyzing…" : "Analyze"}
+                </button>
+              </div>
+
+              {analyzeResult && (
+                <AnalyzeSummary
+                  data={analyzeResult}
+                  showRaw={showRawAnalyze}
+                  onToggleRaw={() => setShowRawAnalyze((v) => !v)}
+                />
+              )}
+
+              {isWebsite && (
+                <>
+                  <LoadTestConfig
+                    users={testUsers}
+                    spawnRate={testSpawnRate}
+                    duration={testDuration}
+                    onUsersChange={setTestUsers}
+                    onSpawnRateChange={setTestSpawnRate}
+                    onDurationChange={setTestDuration}
+                  />
+                  <WebsiteLoadTestSection
+                    sitemapRaw={sitemapRaw}
+                    onStart={startWebsiteLoadTest}
+                    starting={startingWebsiteTest}
+                    testRunning={testRunning}
+                  />
+                </>
+              )}
+            </Section>
+
+            {isApi && (
+              <Section
+                id="step-2"
+                step={2}
+                title="Sample request"
+                description="Paste a JSON body the API accepts. Edge cases are generated from it."
+                state={stateOf(2)}
+              >
+                <label htmlFor="sample-input" style={labelStyle}>Sample JSON body</label>
+                <textarea
+                  id="sample-input"
+                  rows={4}
+                  style={{ ...inputStyle, resize: "vertical" }}
+                  value={sampleInputText}
+                  onChange={(e) => setSampleInputText(e.target.value)}
+                />
+                <button onClick={generateEdgeCases} style={withDisabled(btnStyle, generating)} disabled={generating}>
+                  {generating ? "Generating…" : "Generate edge cases"}
+                </button>
+              </Section>
+            )}
+
+            {cases.length > 0 && (
+              <Section
+                id="step-3"
+                step={3}
+                title="Cases and load"
+                description="Choose which cases to send, how many users to simulate, and for how long."
+                state={stateOf(3)}
+              >
+                <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: space.sm, marginBottom: space.sm }}>
+                  <button onClick={() => setAllCases(true)} style={smallBtnStyle}>
+                    Select all
+                  </button>
+                  <button onClick={() => setAllCases(false)} style={smallBtnStyle}>
+                    Select none
+                  </button>
+                  <span style={{ marginLeft: "auto", fontSize: type.label, color: colors.textMuted, fontFamily: font.mono }}>
+                    {selectedCount} of {allCases.length} selected
+                  </span>
+                </div>
+
                 <div
                   style={{
-                    width: `${Math.min((elapsedSec / runDuration) * 100, 100)}%`,
-                    height: "100%",
-                    background: colors.accent,
-                    borderRadius: radius.pill,
-                    transition: "width 0.5s linear",
+                    maxHeight: 380,
+                    overflowY: "auto",
+                    border: `1px solid ${colors.border}`,
+                    borderRadius: radius.md,
+                    background: colors.inset,
                   }}
+                >
+                  {caseCategories.map((cat) => {
+                    const inCategory = allCases.filter((c) => c.category === cat);
+                    const onCount = inCategory.filter((c) => selected[c.label]).length;
+                    const allOn = onCount === inCategory.length;
+                    const someOn = onCount > 0 && !allOn;
+                    return (
+                      <div key={cat} role="group" aria-label={CASE_CATEGORY_LABELS[cat] || cat}>
+                        <label
+                          style={{
+                            position: "sticky",
+                            top: 0,
+                            zIndex: 1,
+                            display: "flex",
+                            alignItems: "center",
+                            gap: space.sm,
+                            padding: `6px ${space.md}px`,
+                            background: colors.surfaceRaised,
+                            borderBottom: `1px solid ${colors.borderSubtle}`,
+                            cursor: "pointer",
+                          }}
+                          title={`${allOn ? "Deselect" : "Select"} every case in "${CASE_CATEGORY_LABELS[cat] || cat}"`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={allOn}
+                            ref={(el) => {
+                              if (el) el.indeterminate = someOn;
+                            }}
+                            onChange={() => toggleCategory(cat)}
+                          />
+                          <span style={{ fontWeight: 600, fontSize: type.body }}>{CASE_CATEGORY_LABELS[cat] || cat}</span>
+                          <span style={{ fontFamily: font.mono, fontSize: type.label, color: colors.textMuted }}>
+                            {onCount}/{inCategory.length}
+                          </span>
+                        </label>
+                        {inCategory.map((c) => (
+                          <label
+                            key={c.label}
+                            style={{
+                              display: "flex",
+                              alignItems: "baseline",
+                              gap: space.sm,
+                              padding: `5px ${space.md}px 5px ${space.xl + space.sm}px`,
+                              fontSize: type.body,
+                              cursor: "pointer",
+                              borderBottom: `1px solid ${colors.borderSubtle}`,
+                            }}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={!!selected[c.label]}
+                              onChange={() => toggleCase(c.label)}
+                              style={{ transform: "translateY(2px)" }}
+                            />
+                            <span style={{ flex: 1, color: colors.text }}>{c.description}</span>
+                            <span style={{ fontFamily: font.mono, fontSize: 11.5, color: colors.textFaint }}>
+                              {c.label}
+                            </span>
+                            {c.isCustom && (
+                              <button
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  removeCustomCase(c.label);
+                                }}
+                                aria-label={`Remove custom case ${c.label}`}
+                                style={{
+                                  background: "transparent",
+                                  border: "none",
+                                  color: colors.textMuted,
+                                  cursor: "pointer",
+                                  fontSize: 15,
+                                  padding: "0 2px",
+                                }}
+                              >
+                                ×
+                              </button>
+                            )}
+                          </label>
+                        ))}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <details style={{ marginTop: space.md }}>
+                  <summary style={{ cursor: "pointer", fontSize: type.body, color: colors.accent }}>
+                    Add your own case
+                  </summary>
+                  <div style={{ marginTop: space.sm, display: "grid", gap: space.sm }}>
+                    <p style={{ fontSize: type.small, color: colors.textMuted, margin: 0 }}>
+                      Give it a label (lowercase letters, digits, _) and the JSON body to send. It must
+                      differ from the sample request.
+                    </p>
+                    <div>
+                      <label htmlFor="custom-label" style={labelStyle}>Label</label>
+                      <input
+                        id="custom-label"
+                        style={inputStyle}
+                        placeholder="admin_user"
+                        value={customLabel}
+                        onChange={(e) => setCustomLabel(e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="custom-payload" style={labelStyle}>JSON body</label>
+                      <textarea
+                        id="custom-payload"
+                        rows={3}
+                        style={{ ...inputStyle, resize: "vertical" }}
+                        placeholder='{"username": "admin", "password": "demo123", "expiresInMins": 30}'
+                        value={customPayloadText}
+                        onChange={(e) => setCustomPayloadText(e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <button onClick={validateCustomCase} style={{ ...secondaryBtnStyle, marginTop: 0 }}>
+                        Validate and add
+                      </button>
+                    </div>
+                    {customMessage && (
+                      <div
+                        role="status"
+                        style={{ fontSize: type.small, color: customMessage.ok ? colors.success : colors.danger }}
+                      >
+                        {customMessage.text}
+                      </div>
+                    )}
+                  </div>
+                </details>
+
+                <LoadTestConfig
+                  users={testUsers}
+                  spawnRate={testSpawnRate}
+                  duration={testDuration}
+                  onUsersChange={setTestUsers}
+                  onSpawnRateChange={setTestSpawnRate}
+                  onDurationChange={setTestDuration}
                 />
-              </div>
-              <div style={{ fontSize: 12, color: colors.textMuted, fontFamily: font.mono }}>
-                {elapsedSec}s elapsed · ~{runDuration}s configured (estimate — includes ramp-up
-                and teardown)
-              </div>
-            </div>
-          )}
 
-          {websitePathsUsed && (
-            <p style={{ fontSize: 12.5, color: colors.textMuted, fontFamily: font.mono }}>
-              Pages tested: {websitePathsUsed.join(", ")}
-            </p>
-          )}
+                <button onClick={confirmAndStart} style={withDisabled(btnStyle, testRunning)} disabled={testRunning}>
+                  {testRunning ? "Test in progress…" : "Confirm selection and start load test"}
+                </button>
+              </Section>
+            )}
 
-          {jobResult && (
-            <JobResultSummary
-              data={jobResult}
-              showRaw={showRawJob}
-              onToggleRaw={() => setShowRawJob((v) => !v)}
-            />
-          )}
-          {jobResult && (
-            <RunActions
-              run={jobResult}
-              regressionInfo={regressionInfo}
-              onMarkBaseline={markAsBaseline}
-              markingBaseline={markingBaseline}
-            />
-          )}
-        </Section>
-      )}
-
-      {jobHistory.length > 0 && (
-        <Section id="step-5" title="5. Compare past runs">
-          <>
-            <p style={{ fontSize: 12.5, color: colors.textMuted, marginTop: 0 }}>
-              Tick 2 to 4 runs. The first one you tick is the reference (Run 1).
-            </p>
-            <div
-              className="case-list"
-              style={{
-                maxHeight: 220,
-                overflowY: "auto",
-                border: `1px solid ${colors.border}`,
-                borderRadius: radius.md,
-                padding: space.sm,
-                background: colors.bg,
-                marginBottom: space.sm,
-              }}
-            >
-              {jobHistory.map((j) => {
-                const position = compareIds.indexOf(j.id);
-                const checked = position !== -1;
-                const full = !checked && compareIds.length >= 4;
-                return (
-                  <label
-                    key={j.id}
+            {jobId && (
+              <Section
+                id="step-4"
+                step={4}
+                title="Run and results"
+                description="Live progress, then results, failure reasons and the comparison with your baseline."
+                state={stateOf(4)}
+              >
+                <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: space.md }}>
+                  <span style={{ fontSize: type.small, color: colors.textMuted }}>
+                    Run <span style={{ fontFamily: font.mono, color: colors.text }}>{jobId}</span>
+                  </span>
+                  {jobResult?.child_jobs?.length > 1 && (
+                    <span
+                      title="Runs above 50 users are split across workers and their results merged."
+                      style={{
+                        border: `1px solid ${colors.accent}`,
+                        color: colors.accent,
+                        fontFamily: font.mono,
+                        fontSize: 11.5,
+                        padding: "1px 8px",
+                        borderRadius: radius.sm,
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      Split across {jobResult.child_jobs.length} workers
+                    </span>
+                  )}
+                  <span
+                    role="status"
+                    aria-live="polite"
                     style={{
-                      display: "flex",
+                      marginLeft: "auto",
+                      display: "inline-flex",
                       alignItems: "center",
                       gap: space.sm,
-                      padding: "5px 4px",
-                      fontSize: 12.5,
-                      cursor: full ? "not-allowed" : "pointer",
-                      opacity: full ? 0.5 : 1,
+                      color: statusLook.color,
+                      fontWeight: 600,
                     }}
                   >
-                    <input
-                      type="checkbox"
-                      value={j.id}
-                      checked={checked}
-                      disabled={full}
-                      onChange={() => toggleCompareId(j.id)}
+                    <span
+                      className={statusLook.live ? "pulse" : undefined}
+                      style={{ width: 8, height: 8, borderRadius: "50%", background: statusLook.color }}
                     />
-                    <span style={{ width: 24, color: colors.accent, fontFamily: font.mono, fontSize: 11 }}>
-                      {checked ? `#${position + 1}` : ""}
-                    </span>
-                    <span style={{ fontFamily: font.mono }}>
-                      {j.target_url} · {j.users}u · {j.status} · {formatTime(j.created_at)}
-                      {j.is_baseline ? <span style={{ color: colors.accent }}> · ★ baseline</span> : null}
-                    </span>
-                  </label>
-                );
-              })}
-            </div>
-            <div style={{ fontSize: 12.5, color: compareIds.length >= 2 ? colors.textMuted : colors.warning }}>
-              {compareIds.length} selected
-              {compareIds.length < 2 && " — select at least 2 runs to compare"}
-              {compareIds.length === 4 && " — maximum of 4 reached"}
-            </div>
-            <button
-              onClick={runComparison}
-              style={{ ...btnStyle, opacity: compareIds.length >= 2 ? 1 : 0.5 }}
-              disabled={compareIds.length < 2}
-            >
-              Compare
-            </button>
-            <button
-              onClick={refreshJobHistory}
-              style={{ ...btnStyle, background: "transparent", color: colors.accent, marginLeft: space.sm, boxShadow: "none" }}
-            >
-              Refresh list
-            </button>
+                    {statusLook.text}
+                  </span>
+                </div>
 
-            {compareResult?.jobs && (
-              <CompareView jobs={compareResult.jobs} caseComparison={compareResult.case_comparison} />
+                {["queued", "running"].includes(jobStatus) && runDuration != null && (
+                  <div style={{ marginTop: space.md }}>
+                    <div
+                      role="progressbar"
+                      aria-label="Estimated progress"
+                      aria-valuemin={0}
+                      aria-valuemax={100}
+                      aria-valuenow={Math.round(Math.min((elapsedSec / runDuration) * 100, 100))}
+                      style={{
+                        height: 4,
+                        background: colors.track,
+                        borderRadius: radius.pill,
+                        overflow: "hidden",
+                        marginBottom: space.xs,
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: `${Math.min((elapsedSec / runDuration) * 100, 100)}%`,
+                          height: "100%",
+                          background: colors.accent,
+                          transition: "width 0.5s linear",
+                        }}
+                      />
+                    </div>
+                    <div style={{ fontSize: type.label, color: colors.textMuted, fontFamily: font.mono }}>
+                      {elapsedSec}s elapsed of about {runDuration}s. This is an estimate: ramp-up and
+                      teardown add a few seconds.
+                    </div>
+                  </div>
+                )}
+
+                {websitePathsUsed && (
+                  <p style={{ fontSize: type.small, color: colors.textMuted, fontFamily: font.mono, marginBottom: 0 }}>
+                    Pages tested: {websitePathsUsed.join(", ")}
+                  </p>
+                )}
+
+                {jobResult && (
+                  <JobResultSummary
+                    data={jobResult}
+                    showRaw={showRawJob}
+                    onToggleRaw={() => setShowRawJob((v) => !v)}
+                    regressionInfo={regressionInfo}
+                  />
+                )}
+                {jobResult && (
+                  <RunActions
+                    run={jobResult}
+                    regressionInfo={regressionInfo}
+                    onMarkBaseline={markAsBaseline}
+                    markingBaseline={markingBaseline}
+                  />
+                )}
+              </Section>
             )}
-          </>
-        </Section>
-      )}
+
+            {jobHistory.length > 0 && (
+              <Section
+                id="step-5"
+                step={5}
+                title="Compare runs"
+                description="Tick 2 to 4 past runs. The first one you tick is the reference, Run 1."
+                state={stateOf(5)}
+              >
+                <div
+                  style={{
+                    border: `1px solid ${colors.border}`,
+                    borderRadius: radius.md,
+                    background: colors.inset,
+                    overflowX: "auto",
+                  }}
+                >
+                  <div style={{ minWidth: 620 }}>
+                    <div
+                      aria-hidden="true"
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: historyColumns,
+                        gap: space.sm,
+                        padding: `6px ${space.md}px`,
+                        fontFamily: font.mono,
+                        fontSize: 11.5,
+                        color: colors.textMuted,
+                        borderBottom: `1px solid ${colors.border}`,
+                      }}
+                    >
+                      <span />
+                      <span>Order</span>
+                      <span>Started</span>
+                      <span>Target</span>
+                      <span>Users</span>
+                      <span>Status</span>
+                      <span>Baseline</span>
+                    </div>
+                    <div style={{ maxHeight: 240, overflowY: "auto" }}>
+                      {jobHistory.map((j) => {
+                        const position = compareIds.indexOf(j.id);
+                        const checked = position !== -1;
+                        const full = !checked && compareIds.length >= 4;
+                        return (
+                          <label
+                            key={j.id}
+                            style={{
+                              display: "grid",
+                              gridTemplateColumns: historyColumns,
+                              gap: space.sm,
+                              alignItems: "center",
+                              padding: `5px ${space.md}px`,
+                              fontFamily: font.mono,
+                              fontSize: type.label,
+                              color: full ? colors.textFaint : colors.text,
+                              background: checked ? colors.accentSoft : "transparent",
+                              borderBottom: `1px solid ${colors.borderSubtle}`,
+                              cursor: full ? "not-allowed" : "pointer",
+                            }}
+                          >
+                            <input
+                              type="checkbox"
+                              value={j.id}
+                              checked={checked}
+                              disabled={full}
+                              onChange={() => toggleCompareId(j.id)}
+                              aria-label={`Compare run started ${formatTime(j.created_at)}, ${j.users} users`}
+                            />
+                            <span style={{ color: colors.accent }}>{checked ? `#${position + 1}` : ""}</span>
+                            <span>{formatTime(j.created_at)}</span>
+                            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                              {j.target_url}
+                            </span>
+                            <span>{j.users}</span>
+                            <span style={{ color: j.status === "completed" ? colors.textMuted : colors.text }}>{j.status}</span>
+                            <span style={{ color: colors.accent }}>{j.is_baseline ? "★ baseline" : ""}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: space.md, marginTop: space.md }}>
+                  <button
+                    onClick={runComparison}
+                    style={{ ...withDisabled(btnStyle, compareIds.length < 2 || comparing), marginTop: 0 }}
+                    disabled={compareIds.length < 2 || comparing}
+                  >
+                    {comparing ? "Comparing…" : "Compare"}
+                  </button>
+                  <span style={{ fontSize: type.small, color: colors.textMuted }}>
+                    {compareIds.length} selected
+                    {compareIds.length < 2 && ". Select at least 2 runs to compare."}
+                    {compareIds.length === 4 && ". That's the maximum of 4."}
+                  </span>
+                  <button onClick={refreshJobHistory} style={{ ...linkBtnStyle, marginLeft: "auto" }}>
+                    Refresh list
+                  </button>
+                </div>
+
+                {compareResult?.jobs && (
+                  <CompareView jobs={compareResult.jobs} caseComparison={compareResult.case_comparison} />
+                )}
+              </Section>
+            )}
+          </main>
+        </div>
+      </div>
     </div>
   );
 }

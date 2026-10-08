@@ -77,7 +77,8 @@ actually happened.
 code inside each error text with a pattern match, and adds up the counts per
 code. The old raw list is still there behind "Show raw errors".
 
-**Files.** `code/analysis/failure_summary.py`, `code/app.py` (adds a
+**Files.** `code/frontend/src/theme.js` (the colour for each failure type),
+`code/analysis/failure_summary.py`, `code/app.py` (adds a
 `failure_summary` field), `code/frontend/src/components/JobResultSummary.jsx`,
 `code/tests/test_failure_summary.py`.
 
@@ -374,3 +375,121 @@ file.
   and GitLab.
 - *Why build it in the browser?* — Everything needed is already on the page, so
   no new server code is needed.
+
+---
+
+## 13. Findings summary
+
+**What it does.** At the top of every completed result, two to four plain
+sentences say what happened, for example "2 cases caused server errors (500)
+on 95 requests", "Rate limiting (429) on 1,963 requests across 27 cases" or
+"3 cases got worse than the baseline run". Each sentence has a coloured marker
+that matches its status colour.
+
+**Why it exists.** A results page full of numbers takes time to read. The
+findings give the conclusion first, so a viewer knows what to look for.
+
+**How it works.** A small pure function (one with no side effects: same input,
+same output) reads data the page already has — the failure types, the per-case
+rows and the baseline comparison — and turns it into sentences, most serious
+first. No backend change.
+
+**Files.** `code/frontend/src/utils/findings.js`,
+`code/frontend/src/components/Findings.jsx`, `JobResultSummary.jsx`.
+
+**Demo.** Finish a 150-user mock run after marking a 15-user run as the
+baseline: the findings list server errors, the regressions, rate limiting and
+rejected input.
+
+**Teacher might ask.**
+- *Where do these sentences come from — is it AI?* — No. They are built by
+  fixed rules from numbers the backend already returned, so they are always
+  consistent with the tables below.
+- *Why at most four?* — More than four stops being a summary.
+
+---
+
+## 14. Outcome strips
+
+**What it does.** A coloured bar shows how requests ended: green passed, amber
+rejected (4xx), blue rate limited (429), red server error (5xx), grey
+connection failure. There is one large strip for the whole run, a small one in
+every row of the results table, and one per run in the comparison.
+
+**Why it exists.** It makes the main finding visible at a glance: at 150 users
+the tolerated `expiresInMins` cases turn from all green to green plus blue,
+because rate limiting starts.
+
+**How it works.** The failure types already say, for each case, how many
+requests failed with which status. Whatever didn't fail counts as passed. The
+bar's segment widths are proportional to those counts.
+
+**Files.** `code/frontend/src/utils/outcomes.js`,
+`code/frontend/src/components/OutcomeStrip.jsx`, `JobResultSummary.jsx`,
+`CompareView.jsx`, `code/frontend/src/theme.js` (the `outcome` colours).
+
+**Demo.** Scroll the results table of a 150-user run: credential cases are
+amber and blue, the three `expiresInMins` cases green and blue, and the two
+crashing cases red and blue.
+
+**Teacher might ask.**
+- *Why these colours?* — Each colour means exactly one outcome everywhere in
+  the app, and is never used for decoration, so the reader learns it once.
+- *Is colour the only signal?* — No. Every strip has a text description for
+  screen readers, a tooltip, and the large one has a legend with counts.
+
+---
+
+## 15. Backend connection indicator
+
+**What it does.** The header shows "Connected" (green) or "Backend offline"
+(red).
+
+**Why it exists.** If the backend isn't running, nothing works. The indicator
+says so immediately instead of letting the user find out from an error.
+
+**How it works.** Every 15 seconds the page calls the existing `GET
+/api/health` endpoint. An answer means connected; no answer means offline.
+
+**Files.** `code/frontend/src/components/AppHeader.jsx`.
+
+**Demo.** Stop `python app.py`; within 15 seconds the header says "Backend
+offline". Start it again and it returns to "Connected".
+
+**Teacher might ask.**
+- *Why 15 seconds and not every second?* — It is only a status light; checking
+  often would add load for no benefit.
+- *Does it change how tests run?* — No, it only reads the health endpoint.
+
+---
+
+## 16. Visual design and step rail
+
+**What it does.** A consistent dark "measurement instrument" look: graphite
+panels, one teal accent for actions, status colours only for meaning, a
+monospace font for every number. The left step rail shows each step's state
+(done, current, waiting, not needed) and scrolls to it when clicked.
+
+**Why it exists.** A consistent visual language makes the tool feel like real
+engineering software and makes the results easier to read.
+
+**How it works.** All colours, fonts and sizes are design tokens (named values)
+in one file, `theme.js`; components only use those names. The fonts are stored
+in the project (`public/fonts`), so the app works without internet. The step
+rail used to live inside `App.jsx`; it is now its own component.
+
+**Files.** `code/frontend/src/theme.js`, `code/frontend/src/index.css`,
+`code/frontend/public/fonts/`, `code/frontend/src/components/Section.jsx`
+(step panels and shared styles), `code/frontend/src/components/StepRail.jsx`
+(moved out of `App.jsx`), `App.jsx`.
+
+**Demo.** Watch the rail while doing the workflow: each step goes from
+"Current step" to "Done"; for a website target, steps 2 and 3 show "Not
+needed". Narrow the window: the rail becomes a bar at the top.
+
+**Teacher might ask.**
+- *Why keep all colours in one file?* — Changing the look means editing one
+  file, and it guarantees that, for example, "red" always means the same thing.
+- *Is it accessible?* — Every input has a label, everything works with the
+  keyboard, focus is always visible, and animations are switched off for
+  people who ask their system for reduced motion.

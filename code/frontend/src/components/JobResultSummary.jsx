@@ -1,9 +1,15 @@
 import { useState } from "react";
-import { btnStyle, preStyle, thStyle, tdStyle } from "./Section";
+import {
+  preStyle, thStyle, tdStyle, tableStyle, chipStyle, linkBtnStyle, subPanelStyle,
+} from "./Section";
 import { parseStatsCsv } from "../utils/parseStatsCsv";
 import { parseFailuresCsv } from "../utils/parseFailuresCsv";
+import { failuresByCase, failuresByKind } from "../utils/outcomes";
+import { deriveFindings } from "../utils/findings";
 import Timeline from "./Timeline";
-import { colors, font, space, radius } from "../theme";
+import OutcomeStrip from "./OutcomeStrip";
+import Findings from "./Findings";
+import { colors, font, outcome, space, radius, type } from "../theme";
 
 function rowStats(r) {
   const requests = Number(r["Request Count"]) || 0;
@@ -11,81 +17,15 @@ function rowStats(r) {
   return { requests, failures, rate: requests > 0 ? (failures / requests) * 100 : 0 };
 }
 
-function rateColor(rate) {
-  if (rate > 50) return colors.danger;
-  if (rate > 10) return colors.warning;
-  return colors.success;
-}
-
-function StatCard({ label, value, sub, valueColor, title }) {
+// One cell of the readout strip at the top of a result.
+function Readout({ label, value, sub, title }) {
   return (
-    <div
-      title={title}
-      style={{
-        flex: "1 1 120px",
-        minWidth: 110,
-        background: colors.surfaceRaised,
-        border: `1px solid ${colors.borderSubtle}`,
-        borderRadius: radius.md,
-        padding: `${space.md}px ${space.lg}px`,
-      }}
-    >
-      <div
-        style={{
-          fontSize: 10.5,
-          fontWeight: 600,
-          letterSpacing: "0.08em",
-          textTransform: "uppercase",
-          color: colors.textMuted,
-          marginBottom: space.xs,
-        }}
-      >
-        {label}
-      </div>
-      <div
-        style={{
-          fontSize: 22,
-          fontWeight: 700,
-          fontFamily: font.mono,
-          color: valueColor || colors.text,
-          lineHeight: 1.2,
-        }}
-      >
+    <div title={title} style={{ background: colors.surfaceRaised, padding: `${space.md}px ${space.lg}px` }}>
+      <div style={{ fontFamily: font.mono, fontSize: type.label, color: colors.textMuted }}>{label}</div>
+      <div style={{ fontFamily: font.mono, fontSize: type.readout, fontWeight: 500, lineHeight: 1.25, color: colors.text }}>
         {value}
       </div>
-      {sub && (
-        <div style={{ fontSize: 11.5, color: colors.textMuted, fontFamily: font.mono, marginTop: 2 }}>
-          {sub}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function FailBar({ rate }) {
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 110 }}>
-      <span style={{ minWidth: 42, textAlign: "right", color: rateColor(rate) }}>
-        {rate.toFixed(0)}%
-      </span>
-      <div
-        style={{
-          flex: 1,
-          height: 5,
-          background: colors.track,
-          borderRadius: radius.pill,
-          overflow: "hidden",
-        }}
-      >
-        <div
-          style={{
-            width: `${Math.min(rate, 100)}%`,
-            height: "100%",
-            background: colors.danger,
-            borderRadius: radius.pill,
-          }}
-        />
-      </div>
+      {sub && <div style={{ fontFamily: font.mono, fontSize: 11.5, color: colors.textFaint }}>{sub}</div>}
     </div>
   );
 }
@@ -102,11 +42,11 @@ const CATEGORY_ORDER = [
 ];
 
 export const CATEGORY_LABELS = {
-  missing_field: "Missing Field",
-  null_value: "Null Value",
-  type_mismatch: "Type Mismatch",
-  boundary_value: "Boundary Value",
-  known_attack: "Known Attack",
+  missing_field: "Missing field",
+  null_value: "Null value",
+  type_mismatch: "Type mismatch",
+  boundary_value: "Boundary value",
+  known_attack: "Known attack",
   other: "Other / custom",
 };
 
@@ -123,14 +63,14 @@ function categoryOf(name) {
 }
 
 const COLUMNS = [
-  { key: "name", label: "Edge Case" },
-  { key: "requests", label: "Requests" },
-  { key: "failures", label: "Failures" },
-  { key: "rate", label: "Fail %" },
-  { key: "avg", label: "Avg (ms)" },
-  { key: "p95", label: "p95 (ms)" },
-  { key: "min", label: "Min (ms)" },
-  { key: "max", label: "Max (ms)" },
+  { key: "name", label: "Edge case" },
+  { key: "requests", label: "Requests", numeric: true },
+  { key: "failures", label: "Failures", numeric: true },
+  { key: "rate", label: "Outcome / fail %" },
+  { key: "avg", label: "Avg ms", numeric: true },
+  { key: "p95", label: "p95 ms", numeric: true },
+  { key: "min", label: "Min ms", numeric: true },
+  { key: "max", label: "Max ms", numeric: true },
 ];
 
 function rowValue(r, key) {
@@ -158,28 +98,9 @@ function formatMs(value) {
   return Number.isFinite(n) ? Math.round(n) : "—";
 }
 
-// One colour per failure type: amber for rejected input, blue for rate
-// limiting, red for server errors, grey for connection problems.
-function failureKindColors(kind) {
-  switch (kind) {
-    case "rejected": return { fg: colors.warning, bg: colors.warningSoft };
-    case "rate_limited": return { fg: colors.info, bg: colors.infoSoft };
-    case "server_error": return { fg: colors.danger, bg: colors.dangerSoft };
-    default: return { fg: colors.textMuted, bg: colors.mutedSoft };
-  }
-}
+const num = { textAlign: "right" };
 
-const chipStyle = {
-  fontFamily: font.mono,
-  fontSize: 11,
-  color: colors.textMuted,
-  background: colors.bg,
-  border: `1px solid ${colors.borderSubtle}`,
-  borderRadius: radius.pill,
-  padding: "1px 8px",
-};
-
-export default function JobResultSummary({ data, showRaw, onToggleRaw }) {
+export default function JobResultSummary({ data, showRaw, onToggleRaw, regressionInfo }) {
   const [sort, setSort] = useState({ key: "rate", dir: "desc" });
   const [view, setView] = useState("flat");
   const [collapsed, setCollapsed] = useState({});
@@ -201,9 +122,10 @@ export default function JobResultSummary({ data, showRaw, onToggleRaw }) {
     (nonAggregated.length > 0 && nonAggregated.every((r) => r.Name.startsWith("/")));
   const activeView = isWebsite ? "flat" : view;
   const columns = COLUMNS.map((c) =>
-    c.key === "name" ? { ...c, label: isWebsite ? "Page" : "Edge Case" } : c
+    c.key === "name" ? { ...c, label: isWebsite ? "Page" : "Edge case" } : c
   );
   const failureTypes = data.failure_summary || [];
+  const caseOutcomes = failuresByCase(failureTypes);
 
   const sorted = [...nonAggregated].sort((a, b) => {
     const av = rowValue(a, sort.key);
@@ -240,23 +162,40 @@ export default function JobResultSummary({ data, showRaw, onToggleRaw }) {
     const catRows = sorted.filter((r) => categoryOf(r.Name) === cat);
     const requests = catRows.reduce((sum, r) => sum + rowStats(r).requests, 0);
     const failures = catRows.reduce((sum, r) => sum + rowStats(r).failures, 0);
+    const kinds = {};
+    catRows.forEach((r) => {
+      Object.entries(caseOutcomes[r.Name] || {}).forEach(([k, v]) => (kinds[k] = (kinds[k] || 0) + v));
+    });
     return {
       cat,
       rows: catRows,
       requests,
       failures,
+      kinds,
       rate: requests > 0 ? (failures / requests) * 100 : 0,
     };
   }).filter((g) => g.rows.length > 0);
+
+  const findings =
+    data.status === "completed" && agg
+      ? deriveFindings({
+          failureSummary: failureTypes,
+          caseRows: nonAggregated,
+          totalRequests: agg.requests,
+          totalFailures: agg.failures,
+          regressionInfo,
+        })
+      : [];
 
   const viewToggleBtn = (mode, label) => (
     <button
       key={mode}
       onClick={() => setView(mode)}
+      aria-pressed={view === mode}
       style={{
         padding: "4px 12px",
-        fontSize: 12,
-        fontWeight: 600,
+        fontSize: type.small,
+        fontWeight: 500,
         border: "none",
         cursor: "pointer",
         borderRadius: radius.sm,
@@ -268,95 +207,153 @@ export default function JobResultSummary({ data, showRaw, onToggleRaw }) {
     </button>
   );
 
+  const outcomeCell = (requests, kinds, failures, rate) => (
+    <td style={tdStyle}>
+      <div style={{ display: "flex", alignItems: "center", gap: space.sm }}>
+        <div style={{ flex: 1 }}>
+          <OutcomeStrip requests={requests} kindCounts={kinds} failureTotal={failures} />
+        </div>
+        <span style={{ width: 40, textAlign: "right", color: failures === 0 ? colors.success : colors.text }}>
+          {rate.toFixed(0)}%
+        </span>
+      </div>
+    </td>
+  );
+
   const resultRow = (r, i) => {
     const s = rowStats(r);
     return (
-      <tr key={r.Name || i} style={{ borderBottom: `1px solid ${colors.borderSubtle}` }}>
-        <td style={tdStyle}>{r.Name}</td>
-        <td style={tdStyle}>{s.requests}</td>
-        <td style={{ ...tdStyle, color: s.failures > 0 ? colors.danger : colors.success, fontWeight: 600 }}>
-          {s.failures}
-        </td>
-        <td style={tdStyle}>
-          <FailBar rate={s.rate} />
-        </td>
-        <td style={tdStyle}>{Math.round(Number(r["Average Response Time"]))}</td>
-        <td style={tdStyle} title={isGroup ? P95_APPROX_NOTE : undefined}>
+      <tr key={r.Name || i}>
+        <td style={{ ...tdStyle, whiteSpace: "nowrap" }}>{r.Name}</td>
+        <td style={{ ...tdStyle, ...num }}>{s.requests}</td>
+        <td style={{ ...tdStyle, ...num }}>{s.failures}</td>
+        {outcomeCell(s.requests, caseOutcomes[r.Name], s.failures, s.rate)}
+        <td style={{ ...tdStyle, ...num }}>{Math.round(Number(r["Average Response Time"]))}</td>
+        <td style={{ ...tdStyle, ...num }} title={isGroup ? P95_APPROX_NOTE : undefined}>
           {approx}{formatMs(r["95%"])}
         </td>
-        <td style={tdStyle}>{Math.round(Number(r["Min Response Time"]))}</td>
-        <td style={tdStyle}>{Math.round(Number(r["Max Response Time"]))}</td>
+        <td style={{ ...tdStyle, ...num }}>{Math.round(Number(r["Min Response Time"]))}</td>
+        <td style={{ ...tdStyle, ...num }}>{Math.round(Number(r["Max Response Time"]))}</td>
       </tr>
     );
   };
 
+  const runKinds = failuresByKind(failureTypes);
+
   return (
-    <div style={{ marginTop: space.md }}>
+    <div style={{ marginTop: space.lg }}>
       {data.status === "failed" && data.error && (
         <div
+          role="alert"
           style={{
             background: colors.dangerSoft,
             border: `1px solid ${colors.danger}`,
-            color: colors.danger,
+            color: colors.text,
             padding: space.md,
-            borderRadius: radius.sm,
-            fontSize: 13.5,
+            borderRadius: radius.md,
+            fontSize: type.body,
+            marginBottom: space.md,
           }}
         >
-          Error: {data.error}
+          <strong style={{ color: colors.danger }}>The run failed.</strong> {data.error}
         </div>
       )}
+
+      <Findings findings={findings} />
 
       {agg && (
-        <div style={{ display: "flex", flexWrap: "wrap", gap: space.sm, marginBottom: space.lg }}>
-          <StatCard label="Total Requests" value={agg.requests} />
-          <StatCard
-            label="Failure Rate"
-            value={`${agg.rate.toFixed(1)}%`}
-            sub={`${agg.failures} / ${agg.requests}`}
-            valueColor={rateColor(agg.rate)}
-          />
-          <StatCard
-            label="Avg Response"
-            value={`${Math.round(Number(aggregated["Average Response Time"]))} ms`}
-          />
-          <StatCard
-            label="p95 Response"
-            value={`${approx}${formatMs(aggregated["95%"])} ms`}
-            sub={isGroup ? "approx. (split run)" : "95% were faster"}
-            title={isGroup ? P95_APPROX_NOTE : "95% of requests finished within this time."}
-          />
-          <StatCard label="Requests/sec" value={Number(aggregated["Requests/s"]).toFixed(2)} />
-          <StatCard
-            label="Duration"
-            value={data.duration_seconds != null ? `${data.duration_seconds} s` : "—"}
-          />
-        </div>
+        <>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
+              gap: 1,
+              background: colors.borderSubtle,
+              border: `1px solid ${colors.borderSubtle}`,
+              borderRadius: radius.md,
+              overflow: "hidden",
+            }}
+          >
+            <Readout label="Requests" value={agg.requests.toLocaleString()} />
+            <Readout
+              label="Failure rate"
+              value={`${agg.rate.toFixed(1)}%`}
+              sub={`${agg.failures.toLocaleString()} of ${agg.requests.toLocaleString()} failed`}
+            />
+            <Readout label="Avg response" value={`${Math.round(Number(aggregated["Average Response Time"]))} ms`} />
+            <Readout
+              label="p95 response"
+              value={`${approx}${formatMs(aggregated["95%"])} ms`}
+              sub={isGroup ? "approximate (split run)" : "95% were faster"}
+              title={isGroup ? P95_APPROX_NOTE : "95% of requests finished within this time."}
+            />
+            <Readout label="Requests / s" value={Number(aggregated["Requests/s"]).toFixed(2)} />
+            <Readout
+              label="Duration"
+              value={data.duration_seconds != null ? `${data.duration_seconds} s` : "—"}
+            />
+          </div>
+
+          <div style={{ ...subPanelStyle, padding: space.md, marginTop: space.sm }}>
+            <div style={{ fontFamily: font.mono, fontSize: type.label, color: colors.textMuted, marginBottom: space.sm }}>
+              How the {agg.requests.toLocaleString()} requests ended
+            </div>
+            <OutcomeStrip requests={agg.requests} kindCounts={runKinds} failureTotal={agg.failures} size="large" />
+          </div>
+        </>
       )}
 
-      {nonAggregated.length > 0 && !isWebsite && (
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: 2, marginBottom: space.xs }}>
-          {viewToggleBtn("flat", "Flat")}
-          {viewToggleBtn("grouped", "Grouped")}
+      {!agg && data.status === "completed" && (
+        <p style={{ color: colors.textMuted, fontSize: type.body }}>
+          The run finished but produced no statistics. Check that the target was reachable and try again.
+        </p>
+      )}
+
+      {nonAggregated.length > 0 && (
+        <div style={{ display: "flex", alignItems: "center", marginTop: space.xl, marginBottom: space.xs }}>
+          <h3 style={{ margin: 0, fontSize: type.body, fontWeight: 600, flex: 1 }}>
+            {isWebsite ? "Pages" : "Edge cases"}
+            <span style={{ fontFamily: font.mono, fontWeight: 400, color: colors.textMuted, marginLeft: space.sm, fontSize: type.label }}>
+              {nonAggregated.length}
+            </span>
+          </h3>
+          {!isWebsite && (
+            <div role="group" aria-label="Table view" style={{ display: "flex", gap: 2 }}>
+              {viewToggleBtn("flat", "Flat")}
+              {viewToggleBtn("grouped", "Grouped")}
+            </div>
+          )}
         </div>
       )}
 
       {rows.length > 0 && (
         <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+          <table style={tableStyle}>
             <thead>
-              <tr style={{ borderBottom: `2px solid ${colors.border}`, textAlign: "left" }}>
+              <tr>
                 {columns.map((c) => (
                   <th
                     key={c.key}
-                    style={{ ...thStyle, cursor: "pointer", userSelect: "none", whiteSpace: "nowrap" }}
-                    onClick={() => toggleSort(c.key)}
-                    title={`Sort by ${c.label}`}
+                    style={{ ...thStyle, ...(c.numeric ? num : {}) }}
+                    aria-sort={sort.key === c.key ? (sort.dir === "desc" ? "descending" : "ascending") : "none"}
                   >
-                    {c.label}
-                    <span style={{ color: colors.accent, marginLeft: 4, fontSize: 10 }}>
-                      {sort.key === c.key ? (sort.dir === "desc" ? "▾" : "▴") : ""}
-                    </span>
+                    <button
+                      onClick={() => toggleSort(c.key)}
+                      title={`Sort by ${c.label}`}
+                      style={{
+                        background: "transparent",
+                        border: "none",
+                        padding: 0,
+                        color: sort.key === c.key ? colors.text : colors.textMuted,
+                        font: "inherit",
+                        cursor: "pointer",
+                      }}
+                    >
+                      {c.label}
+                      <span style={{ color: colors.accent, marginLeft: 4, fontSize: 10 }}>
+                        {sort.key === c.key ? (sort.dir === "desc" ? "▾" : "▴") : ""}
+                      </span>
+                    </button>
                   </th>
                 ))}
               </tr>
@@ -367,54 +364,51 @@ export default function JobResultSummary({ data, showRaw, onToggleRaw }) {
                 groups.map((g) => {
                   const isOpen = !collapsed[g.cat];
                   return [
-                    <tr
-                      key={`hdr-${g.cat}`}
-                      onClick={() => setCollapsed((prev) => ({ ...prev, [g.cat]: !prev[g.cat] }))}
-                      style={{
-                        background: colors.surfaceRaised,
-                        borderBottom: `1px solid ${colors.border}`,
-                        cursor: "pointer",
-                        userSelect: "none",
-                      }}
-                      title={isOpen ? "Collapse" : "Expand"}
-                    >
-                      <td style={{ ...tdStyle, fontFamily: font.sans, fontWeight: 600, whiteSpace: "nowrap" }}>
-                        <span style={{ color: colors.accent, marginRight: 6, fontSize: 10 }}>
-                          {isOpen ? "▾" : "▸"}
-                        </span>
-                        {CATEGORY_LABELS[g.cat]}
-                        <span style={{ color: colors.textMuted, fontWeight: 400, marginLeft: 6, fontSize: 12 }}>
-                          ({g.rows.length})
-                        </span>
+                    <tr key={`hdr-${g.cat}`} style={{ background: colors.surfaceRaised }}>
+                      <td style={{ ...tdStyle, whiteSpace: "nowrap" }}>
+                        <button
+                          onClick={() => setCollapsed((prev) => ({ ...prev, [g.cat]: !prev[g.cat] }))}
+                          aria-expanded={isOpen}
+                          style={{
+                            background: "transparent",
+                            border: "none",
+                            padding: 0,
+                            color: colors.text,
+                            fontFamily: font.sans,
+                            fontSize: type.body,
+                            fontWeight: 600,
+                            cursor: "pointer",
+                          }}
+                        >
+                          <span style={{ color: colors.accent, marginRight: 6, fontSize: 10 }}>
+                            {isOpen ? "▾" : "▸"}
+                          </span>
+                          {CATEGORY_LABELS[g.cat]}
+                          <span style={{ color: colors.textMuted, fontWeight: 400, marginLeft: 6, fontFamily: font.mono, fontSize: type.label }}>
+                            {g.rows.length}
+                          </span>
+                        </button>
                       </td>
-                      <td style={{ ...tdStyle, fontWeight: 600 }}>{g.requests}</td>
-                      <td style={{ ...tdStyle, fontWeight: 600, color: g.failures > 0 ? colors.danger : colors.success }}>
-                        {g.failures}
-                      </td>
-                      <td style={tdStyle}>
-                        <FailBar rate={g.rate} />
-                      </td>
+                      <td style={{ ...tdStyle, ...num }}>{g.requests}</td>
+                      <td style={{ ...tdStyle, ...num }}>{g.failures}</td>
+                      {outcomeCell(g.requests, g.kinds, g.failures, g.rate)}
                       <td style={tdStyle} colSpan={4} />
                     </tr>,
                     ...(isOpen ? g.rows.map(resultRow) : []),
                   ];
                 })}
               {aggregated && agg && (
-                <tr style={{ fontWeight: 700, borderTop: `2px solid ${colors.border}` }}>
-                  <td style={tdStyle}>Total</td>
-                  <td style={tdStyle}>{agg.requests}</td>
-                  <td style={{ ...tdStyle, color: agg.failures > 0 ? colors.danger : colors.success }}>
-                    {agg.failures}
-                  </td>
-                  <td style={tdStyle}>
-                    <FailBar rate={agg.rate} />
-                  </td>
-                  <td style={tdStyle}>{Math.round(Number(aggregated["Average Response Time"]))}</td>
-                  <td style={tdStyle} title={isGroup ? P95_APPROX_NOTE : undefined}>
+                <tr style={{ fontWeight: 600 }}>
+                  <td style={{ ...tdStyle, borderTop: `1px solid ${colors.border}` }}>Total</td>
+                  <td style={{ ...tdStyle, ...num }}>{agg.requests}</td>
+                  <td style={{ ...tdStyle, ...num }}>{agg.failures}</td>
+                  {outcomeCell(agg.requests, runKinds, agg.failures, agg.rate)}
+                  <td style={{ ...tdStyle, ...num }}>{Math.round(Number(aggregated["Average Response Time"]))}</td>
+                  <td style={{ ...tdStyle, ...num }} title={isGroup ? P95_APPROX_NOTE : undefined}>
                     {approx}{formatMs(aggregated["95%"])}
                   </td>
-                  <td style={tdStyle}>{Math.round(Number(aggregated["Min Response Time"]))}</td>
-                  <td style={tdStyle}>{Math.round(Number(aggregated["Max Response Time"]))}</td>
+                  <td style={{ ...tdStyle, ...num }}>{Math.round(Number(aggregated["Min Response Time"]))}</td>
+                  <td style={{ ...tdStyle, ...num }}>{Math.round(Number(aggregated["Max Response Time"]))}</td>
                 </tr>
               )}
             </tbody>
@@ -425,16 +419,10 @@ export default function JobResultSummary({ data, showRaw, onToggleRaw }) {
       <Timeline historyCsv={data.aggregated_history_csv || data.history_csv} />
 
       {(failureTypes.length > 0 || errorGroups.length > 0) && (
-        <div
-          style={{
-            marginTop: space.md,
-            border: `1px solid ${colors.borderSubtle}`,
-            borderRadius: radius.md,
-            background: colors.surfaceRaised,
-          }}
-        >
+        <div style={{ ...subPanelStyle, marginTop: space.md }}>
           <button
             onClick={() => setShowFailureReasons((v) => !v)}
+            aria-expanded={showFailureReasons}
             style={{
               width: "100%",
               display: "flex",
@@ -445,7 +433,7 @@ export default function JobResultSummary({ data, showRaw, onToggleRaw }) {
               border: "none",
               cursor: "pointer",
               color: colors.text,
-              fontSize: 13,
+              fontSize: type.body,
               fontWeight: 600,
               textAlign: "left",
             }}
@@ -454,7 +442,7 @@ export default function JobResultSummary({ data, showRaw, onToggleRaw }) {
               {showFailureReasons ? "▾" : "▸"}
             </span>
             Why did these fail?
-            <span style={{ color: colors.textMuted, fontWeight: 400 }}>
+            <span style={{ color: colors.textMuted, fontWeight: 400, fontFamily: font.mono, fontSize: type.label }}>
               {failureTypes.length} failure type{failureTypes.length === 1 ? "" : "s"}
             </span>
           </button>
@@ -462,23 +450,20 @@ export default function JobResultSummary({ data, showRaw, onToggleRaw }) {
           {showFailureReasons && (
             <div style={{ padding: `0 ${space.md}px ${space.md}px` }}>
               {failureTypes.map((t) => {
-                const tone = failureKindColors(t.kind);
+                const tone = outcome[t.kind] || outcome.other;
                 return (
                   <div
                     key={String(t.code)}
-                    style={{
-                      borderTop: `1px solid ${colors.borderSubtle}`,
-                      padding: `${space.sm}px 0`,
-                    }}
+                    style={{ borderTop: `1px solid ${colors.borderSubtle}`, padding: `${space.sm}px 0` }}
                   >
                     <div style={{ display: "flex", alignItems: "center", gap: space.sm }}>
                       <span
                         style={{
                           fontFamily: font.mono,
-                          fontSize: 12,
-                          fontWeight: 700,
+                          fontSize: type.label,
+                          fontWeight: 500,
                           color: tone.fg,
-                          background: tone.bg,
+                          background: tone.soft,
                           border: `1px solid ${tone.fg}`,
                           borderRadius: radius.sm,
                           padding: "1px 7px",
@@ -486,13 +471,13 @@ export default function JobResultSummary({ data, showRaw, onToggleRaw }) {
                       >
                         {t.code ?? "ERR"}
                       </span>
-                      <span style={{ flex: 1, fontSize: 13, color: colors.text }}>
+                      <span style={{ flex: 1, fontSize: type.body, color: colors.text }}>
                         {t.meaning}
-                        <span style={{ color: colors.textMuted, fontFamily: font.mono, fontSize: 11.5, marginLeft: 6 }}>
+                        <span style={{ color: colors.textMuted, fontFamily: font.mono, fontSize: type.label, marginLeft: space.sm }}>
                           {t.reason}
                         </span>
                       </span>
-                      <span style={{ fontFamily: font.mono, fontSize: 12, color: colors.textMuted, whiteSpace: "nowrap" }}>
+                      <span style={{ fontFamily: font.mono, fontSize: type.label, color: colors.textMuted, whiteSpace: "nowrap" }}>
                         ×{t.total}
                       </span>
                     </div>
@@ -508,73 +493,24 @@ export default function JobResultSummary({ data, showRaw, onToggleRaw }) {
               })}
 
               {errorGroups.length > 0 && (
-                <button
-                  onClick={() => setShowRawErrors((v) => !v)}
-                  style={{
-                    background: "transparent",
-                    border: "none",
-                    color: colors.accent,
-                    cursor: "pointer",
-                    fontSize: 12,
-                    padding: `${space.xs}px 0`,
-                  }}
-                >
+                <button onClick={() => setShowRawErrors((v) => !v)} aria-expanded={showRawErrors} style={linkBtnStyle}>
                   {showRawErrors ? "Hide raw errors" : `Show raw errors (${errorGroups.length})`}
                 </button>
               )}
 
               {showRawErrors && errorGroups.map((g) => (
-                <div
-                  key={g.error}
-                  style={{
-                    borderTop: `1px solid ${colors.borderSubtle}`,
-                    padding: `${space.sm}px 0`,
-                  }}
-                >
+                <div key={g.error} style={{ borderTop: `1px solid ${colors.borderSubtle}`, padding: `${space.sm}px 0` }}>
                   <div style={{ display: "flex", alignItems: "baseline", gap: space.sm }}>
-                    <span
-                      style={{
-                        fontFamily: font.mono,
-                        fontSize: 12.5,
-                        color: colors.danger,
-                        wordBreak: "break-word",
-                        flex: 1,
-                      }}
-                    >
+                    <span style={{ fontFamily: font.mono, fontSize: type.small, color: colors.text, wordBreak: "break-word", flex: 1 }}>
                       {g.error}
                     </span>
-                    <span
-                      style={{
-                        fontFamily: font.mono,
-                        fontSize: 12,
-                        color: colors.textMuted,
-                        whiteSpace: "nowrap",
-                      }}
-                    >
+                    <span style={{ fontFamily: font.mono, fontSize: type.label, color: colors.textMuted, whiteSpace: "nowrap" }}>
                       ×{g.total}
                     </span>
                   </div>
-                  <div
-                    style={{
-                      display: "flex",
-                      flexWrap: "wrap",
-                      gap: space.xs,
-                      marginTop: space.xs,
-                    }}
-                  >
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: space.xs, marginTop: space.xs }}>
                     {g.cases.map((c) => (
-                      <span
-                        key={c.name}
-                        style={{
-                          fontFamily: font.mono,
-                          fontSize: 11,
-                          color: colors.textMuted,
-                          background: colors.bg,
-                          border: `1px solid ${colors.borderSubtle}`,
-                          borderRadius: radius.pill,
-                          padding: "1px 8px",
-                        }}
-                      >
+                      <span key={c.name} style={chipStyle}>
                         {c.name} ×{c.count}
                       </span>
                     ))}
@@ -586,16 +522,7 @@ export default function JobResultSummary({ data, showRaw, onToggleRaw }) {
         </div>
       )}
 
-      <button
-        onClick={onToggleRaw}
-        style={{
-          ...btnStyle,
-          background: "transparent",
-          color: colors.accent,
-          padding: "4px 0",
-          marginTop: space.sm,
-        }}
-      >
+      <button onClick={onToggleRaw} aria-expanded={showRaw} style={{ ...linkBtnStyle, marginTop: space.sm }}>
         {showRaw ? "Hide raw response" : "Show raw response"}
       </button>
 

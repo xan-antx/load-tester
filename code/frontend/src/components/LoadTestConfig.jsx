@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { colors, font, space } from "../theme";
-import { inputStyle as themeInputStyle } from "./Section";
+import { space } from "../theme";
+import { inputStyle as themeInputStyle, labelStyle } from "./Section";
 
 export const LIMITS = {
   users: { min: 1, max: 1000 },
@@ -33,8 +33,8 @@ function NumberField({ label, value, limits, onCommit }) {
   }
 
   return (
-    <div style={{ flex: 1 }}>
-      <label style={labelStyle}>{label}</label>
+    <label style={{ flex: "1 1 160px" }}>
+      <span style={labelStyle}>{label}</span>
       <input
         type="number"
         min={limits.min}
@@ -47,7 +47,7 @@ function NumberField({ label, value, limits, onCommit }) {
         }}
         style={inputStyle}
       />
-    </div>
+    </label>
   );
 }
 
@@ -60,23 +60,15 @@ export default function LoadTestConfig({
   onDurationChange,
 }) {
   return (
-    <div style={{ display: "flex", gap: space.sm, marginTop: space.md, marginBottom: space.sm }}>
-      <NumberField label="Users (1-1000)" value={users} limits={LIMITS.users} onCommit={onUsersChange} />
-      <NumberField label="Spawn Rate (1-20)" value={spawnRate} limits={LIMITS.spawnRate} onCommit={onSpawnRateChange} />
-      <NumberField label="Duration in seconds (1-300)" value={duration} limits={LIMITS.duration} onCommit={onDurationChange} />
+    <div style={{ display: "flex", flexWrap: "wrap", gap: space.md, marginTop: space.md, marginBottom: space.sm }}>
+      <NumberField label="Users, 1 to 1000" value={users} limits={LIMITS.users} onCommit={onUsersChange} />
+      <NumberField label="Spawn rate per second, 1 to 20" value={spawnRate} limits={LIMITS.spawnRate} onCommit={onSpawnRateChange} />
+      <NumberField label="Duration in seconds, 1 to 300" value={duration} limits={LIMITS.duration} onCommit={onDurationChange} />
     </div>
   );
 }
 
-const labelStyle = {
-  display: "block",
-  fontSize: 12,
-  color: colors.textMuted,
-  marginBottom: space.xs,
-};
-
 const inputStyle = {
   ...themeInputStyle,
-  padding: "7px 10px",
-  fontFamily: font.mono,
+  padding: "8px 10px",
 };

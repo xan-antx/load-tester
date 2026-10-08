@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { parseStatsCsv } from "../utils/parseStatsCsv";
-import { thStyle, tdStyle } from "./Section";
-import { colors, font, space, radius } from "../theme";
+import { thStyle, tdStyle, tableStyle, linkBtnStyle, subPanelStyle } from "./Section";
+import { colors, font, space, type } from "../theme";
 
 // Drawing area inside each SVG (viewBox units; the SVG scales to its box).
 // Roughly the panel's real width in the 1080px layout, so text stays ~10px.
@@ -79,8 +79,8 @@ function LineChart({ title, points, series, xMax, hoverIndex, onHover, showXAxis
 
   return (
     <div style={{ marginBottom: space.xs }}>
-      <div style={{ display: "flex", alignItems: "center", gap: space.md, fontSize: 12, color: colors.textMuted }}>
-        <span style={{ color: colors.text, fontWeight: 600 }}>{title}</span>
+      <div style={{ display: "flex", alignItems: "center", gap: space.md, fontSize: type.small, color: colors.textMuted }}>
+        <span style={{ color: colors.text, fontWeight: 500 }}>{title}</span>
         {series.length > 1 &&
           series.map((s) => (
             <span key={s.key} style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
@@ -147,21 +147,25 @@ export default function Timeline({ historyCsv }) {
   const fmt = (v, digits = 0) => (v == null ? "—" : v.toFixed(digits));
 
   return (
-    <div
-      style={{
-        marginTop: space.md,
-        padding: space.md,
-        border: `1px solid ${colors.borderSubtle}`,
-        borderRadius: radius.md,
-        background: colors.surfaceRaised,
-      }}
-    >
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: space.sm }}>
-        <span style={{ fontSize: 13, fontWeight: 600 }}>Timeline</span>
-        <span style={{ fontSize: 11.5, color: colors.textMuted, fontFamily: font.mono }}>
-          {h
-            ? `${h.t}s · ${fmt(h.users)} users · ${fmt(h.rps, 1)} req/s · ${fmt(h.fps, 1)} fail/s · avg ${fmt(h.avg)} ms · p95 ${fmt(h.p95)} ms`
-            : "hover a chart to read values"}
+    <div style={{ ...subPanelStyle, marginTop: space.md, padding: space.md }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", flexWrap: "wrap", gap: space.sm, marginBottom: space.sm }}>
+        <h3 style={{ margin: 0, fontSize: type.body, fontWeight: 600 }}>Timeline</h3>
+        <span
+          aria-live="polite"
+          style={{ display: "flex", gap: space.md, fontSize: type.label, color: colors.textMuted, fontFamily: font.mono }}
+        >
+          {h ? (
+            <>
+              <span style={{ color: colors.text }}>{h.t}s</span>
+              <span>{fmt(h.users)} users</span>
+              <span>{fmt(h.rps, 1)} req/s</span>
+              <span>{fmt(h.fps, 1)} fail/s</span>
+              <span>avg {fmt(h.avg)} ms</span>
+              <span>p95 {fmt(h.p95)} ms</span>
+            </>
+          ) : (
+            "Hover a chart to read the values at that second"
+          )}
         </span>
       </div>
       <LineChart title="Active users" series={[{ key: "users", label: "Users", color: colors.series1 }]} {...shared} />
@@ -182,21 +186,18 @@ export default function Timeline({ historyCsv }) {
         showXAxis
         {...shared}
       />
-      <p style={{ fontSize: 11, color: colors.textMuted, margin: `${space.xs}px 0 0` }}>
+      <p style={{ fontSize: type.label, color: colors.textMuted, margin: `${space.xs}px 0 0`, maxWidth: "80ch" }}>
         Locust reports the average as a running average since the start, and p95 over a short
-        rolling window — so p95 reacts faster when the server starts to slow down.
+        rolling window, so p95 reacts faster when the server starts to slow down.
       </p>
-      <button
-        onClick={() => setShowTable((v) => !v)}
-        style={{ background: "transparent", border: "none", color: colors.accent, cursor: "pointer", fontSize: 12, padding: `${space.xs}px 0` }}
-      >
+      <button onClick={() => setShowTable((v) => !v)} aria-expanded={showTable} style={linkBtnStyle}>
         {showTable ? "Hide data table" : "Show data table"}
       </button>
       {showTable && (
         <div style={{ maxHeight: 220, overflowY: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+          <table style={{ ...tableStyle, fontSize: 12 }}>
             <thead>
-              <tr style={{ textAlign: "left" }}>
+              <tr>
                 {["Second", "Users", "Req/s", "Fail/s", "Avg ms", "p95 ms"].map((hdr) => (
                   <th key={hdr} style={thStyle}>{hdr}</th>
                 ))}
@@ -204,7 +205,7 @@ export default function Timeline({ historyCsv }) {
             </thead>
             <tbody>
               {points.map((p) => (
-                <tr key={p.t} style={{ borderBottom: `1px solid ${colors.borderSubtle}` }}>
+                <tr key={p.t}>
                   <td style={tdStyle}>{p.t}</td>
                   <td style={tdStyle}>{fmt(p.users)}</td>
                   <td style={tdStyle}>{fmt(p.rps, 1)}</td>
