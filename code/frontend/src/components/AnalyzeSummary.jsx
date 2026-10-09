@@ -39,9 +39,15 @@ export default function AnalyzeSummary({ data, showRaw, onToggleRaw }) {
         ))}
       </div>
       {sanity.error && (
-        <p role="alert" style={{ color: colors.danger, fontSize: type.meta, margin: `${space.sm}px 0 0` }}>
-          {sanity.error}
-        </p>
+        <div style={{ margin: `${space.sm}px 0 0` }}>
+          <p role="alert" style={{ color: colors.danger, fontSize: type.body, margin: 0 }}>
+            Could not connect to this address. Check the URL, and that the server is running and reachable
+            from the backend.
+          </p>
+          <p style={{ color: colors.textMuted, fontFamily: font.mono, fontSize: type.meta, margin: `${space.xs}px 0 0`, wordBreak: "break-word" }}>
+            Technical detail: {sanity.error}
+          </p>
+        </div>
       )}
 
       <button onClick={onToggleRaw} aria-expanded={showRaw} className="btn-link" style={{ marginTop: space.xs }}>

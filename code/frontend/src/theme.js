@@ -12,7 +12,8 @@ export const colors = {
 
   text: "#E3E6E8",
   textMuted: "#8D969E",
-  textFaint: "#5F676E",
+  // At least 4.5:1 on every surface, including surfaceRaised (WCAG 1.4.3).
+  textFaint: "#818A92",
 
   // The single brand accent: actions, focus, progress, selection.
   accent: "#2DD4BF",

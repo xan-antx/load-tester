@@ -98,6 +98,28 @@ input[type="checkbox"] {
   border: 0;
 }
 
+/* First focusable element: lets keyboard users jump past the step rail.
+   Off-screen until it receives focus. */
+.skip-link {
+  position: absolute;
+  top: var(--space-sm);
+  left: var(--space-sm);
+  z-index: var(--z-sticky);
+  padding: var(--space-sm) var(--space-lg);
+  border-radius: var(--radius-md);
+  background: var(--c-accent);
+  color: var(--c-on-accent);
+  font-weight: 600;
+  text-decoration: none;
+  transform: translateY(-200%);
+}
+.skip-link:focus {
+  transform: none;
+}
+#main:focus {
+  outline: none;
+}
+
 /* ---- Buttons: every state is designed ---------------------------------- */
 
 .btn {

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Section, { inputStyle, labelStyle } from "./components/Section";
 import AnalyzeSummary from "./components/AnalyzeSummary";
 import JobResultSummary from "./components/JobResultSummary";
@@ -14,6 +14,37 @@ import { formatTime } from "./utils/formatTime";
 const BASE = import.meta.env.VITE_API_BASE || "http://localhost:5000";
 
 // Section 3 groups the selectable cases under these headings.
+// Shown when a request to the backend fails before any response arrives.
+function networkError(err) {
+  return `${err.message} (Is the backend reachable at ${BASE}?)`;
+}
+
+// Backend errors come back as {error: "..."}; show that sentence rather than
+// the raw JSON, and fall back to the JSON only when there is nothing else.
+function describeError(data, fallback) {
+  if (data?.error) return data.error;
+  if (data?.reason) return data.reason;
+  return data ? `${fallback}: ${JSON.stringify(data)}` : fallback;
+}
+
+const TARGET_CHANGED_MESSAGE =
+  "The target URL has changed since it was analyzed. Click Analyze before starting a test.";
+
+function smoothOrAuto() {
+  return window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
+}
+
+// Small icon buttons (×) still get a 24 × 24 px hit area (WCAG 2.5.8).
+const iconButtonStyle = {
+  minWidth: 24,
+  minHeight: 24,
+  display: "inline-grid",
+  placeItems: "center",
+  color: colors.textMuted,
+  fontSize: type.heading,
+  lineHeight: 1,
+};
+
 const CASE_CATEGORY_LABELS = {
   missing_field: "Missing field",
   null_value: "Null value",
@@ -26,6 +57,9 @@ const CASE_CATEGORY_LABELS = {
 export default function App() {
   const [url, setUrl] = useState("https://dummyjson.com/auth/login");
   const [analyzeResult, setAnalyzeResult] = useState(null);
+  // The URL the last analysis ran on. Tests only start while the field still
+  // holds this URL, so cases built for one target are never sent to another.
+  const [analyzedUrl, setAnalyzedUrl] = useState(null);
   const [isApi, setIsApi] = useState(false);
   const [isWebsite, setIsWebsite] = useState(false);
   const [sitemapRaw, setSitemapRaw] = useState(null);
@@ -72,10 +106,26 @@ export default function App() {
   const [generating, setGenerating] = useState(false);
   const [comparing, setComparing] = useState(false);
   const [startingWebsiteTest, setStartingWebsiteTest] = useState(false);
+  const [startingApiTest, setStartingApiTest] = useState(false);
+  const errorRef = useRef(null);
 
   useEffect(() => {
     refreshJobHistory();
   }, []);
+
+  // The error banner sits at the top of the page; bring it into view (and
+  // give it focus for keyboard users) so a failed click never looks ignored.
+  useEffect(() => {
+    if (!error || !errorRef.current) return;
+    errorRef.current.scrollIntoView({ behavior: smoothOrAuto(), block: "nearest" });
+    errorRef.current.focus({ preventScroll: true });
+  }, [error]);
+
+  // When a run starts, scroll to its progress panel.
+  useEffect(() => {
+    if (!jobId) return;
+    document.getElementById("step-4")?.scrollIntoView({ behavior: smoothOrAuto(), block: "start" });
+  }, [jobId]);
 
   // Elapsed-time ticker for the in-flight run; purely cosmetic, the actual
   // completion signal still comes from pollStatus().
@@ -121,6 +171,8 @@ export default function App() {
       }
       await loadRegressionInfo(jobId);
       refreshJobHistory();
+    } catch (err) {
+      setError(networkError(err));
     } finally {
       setMarkingBaseline(false);
     }
@@ -143,6 +195,10 @@ export default function App() {
 
   async function analyzeUrl() {
     setError(null);
+    if (!/^https?:\/\/[^\s/]+/i.test(url.trim())) {
+      setError("Enter a full URL starting with http:// or https://, for example https://example.com/api/login");
+      return;
+    }
     setAnalyzing(true);
     setAnalyzeResult(null);
     setSitemapRaw(null);
@@ -154,6 +210,14 @@ export default function App() {
       });
       const data = await resp.json();
       setAnalyzeResult(data);
+      // A different target: the old cases were built for the old one.
+      if (url !== analyzedUrl) {
+        setCases([]);
+        setCustomCases([]);
+        setSelected({});
+        setCustomMessage(null);
+      }
+      setAnalyzedUrl(url);
 
       const classification = data.type_detection?.classification;
       setIsApi(resp.ok && classification === "api");
@@ -192,7 +256,7 @@ export default function App() {
       });
       const data = await resp.json();
       if (!resp.ok) {
-        setError(JSON.stringify(data));
+        setError(describeError(data, "Could not generate edge cases"));
         return;
       }
       setCases(data.cases);
@@ -202,6 +266,8 @@ export default function App() {
       // Custom cases were checked against the previous sample, so drop them.
       setCustomCases([]);
       setCustomMessage(null);
+    } catch (err) {
+      setError(networkError(err));
     } finally {
       setGenerating(false);
     }
@@ -247,12 +313,18 @@ export default function App() {
       setCustomMessage({ ok: false, text: `You already added a case called '${label}'` });
       return;
     }
-    const resp = await fetch(`${BASE}/api/validate-custom-case`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ sample_input: sampleInput, label, payload }),
-    });
-    const result = await resp.json();
+    let resp, result;
+    try {
+      resp = await fetch(`${BASE}/api/validate-custom-case`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sample_input: sampleInput, label, payload }),
+      });
+      result = await resp.json();
+    } catch (err) {
+      setCustomMessage({ ok: false, text: networkError(err) });
+      return;
+    }
     if (!resp.ok || !result.valid) {
       setCustomMessage({ ok: false, text: result.reason || result.error || "Not a valid case" });
       return;
@@ -302,53 +374,68 @@ export default function App() {
       setError("Select at least one edge case");
       return;
     }
-
-    const confirmResp = await fetch(`${BASE}/api/confirm-selection`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        sample_input: sampleInput,
-        selected_labels: selectedLabels,
-        custom_cases: selectedCustom,
-      }),
-    });
-    const confirmData = await confirmResp.json();
-    if (!confirmResp.ok) {
-      setError(JSON.stringify(confirmData));
+    if (targetChanged) {
+      setError(TARGET_CHANGED_MESSAGE);
       return;
     }
 
-    const settings = runSettings();
-    const startResp = await fetch(`${BASE}/api/start-load-test`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        url,
-        confirmed_cases: confirmData.confirmed_cases,
-        users: settings.users,
-        spawn_rate: settings.spawnRate,
-        duration_seconds: settings.duration,
-      }),
-    });
-    const startData = await startResp.json();
-    if (!startResp.ok) {
-      setError(JSON.stringify(startData));
-      return;
-    }
+    setStartingApiTest(true);
+    try {
+      const confirmResp = await fetch(`${BASE}/api/confirm-selection`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sample_input: sampleInput,
+          selected_labels: selectedLabels,
+          custom_cases: selectedCustom,
+        }),
+      });
+      const confirmData = await confirmResp.json();
+      if (!confirmResp.ok) {
+        setError(describeError(confirmData, "Could not confirm the selected cases"));
+        return;
+      }
 
-    setWebsitePathsUsed(null);
-    setJobId(startData.job_id);
-    setRunStartedAt(Date.now());
-    setRunDuration(settings.duration);
-    setElapsedSec(0);
-    setJobStatus("queued");
-    setJobResult(null);
-    pollStatus(startData.job_id);
+      const settings = runSettings();
+      const startResp = await fetch(`${BASE}/api/start-load-test`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          url,
+          confirmed_cases: confirmData.confirmed_cases,
+          users: settings.users,
+          spawn_rate: settings.spawnRate,
+          duration_seconds: settings.duration,
+        }),
+      });
+      const startData = await startResp.json();
+      if (!startResp.ok) {
+        setError(describeError(startData, "Could not start the load test"));
+        return;
+      }
+
+      setWebsitePathsUsed(null);
+      setJobId(startData.job_id);
+      setRunStartedAt(Date.now());
+      setRunDuration(settings.duration);
+      setElapsedSec(0);
+      setJobStatus("queued");
+      setJobResult(null);
+      pollStatus(startData.job_id);
+    } catch (err) {
+      setError(networkError(err));
+    } finally {
+      setStartingApiTest(false);
+    }
   }
 
   async function startWebsiteLoadTest() {
     if (testRunning) return;
     setError(null);
+    if (targetChanged) {
+      setError(TARGET_CHANGED_MESSAGE);
+      return;
+    }
     setStartingWebsiteTest(true);
     const settings = runSettings();
     try {
@@ -377,6 +464,8 @@ export default function App() {
       setJobStatus("queued");
       setJobResult(null);
       pollStatus(data.job_id);
+    } catch (err) {
+      setError(networkError(err));
     } finally {
       setStartingWebsiteTest(false);
     }
@@ -424,6 +513,8 @@ export default function App() {
         return;
       }
       setCompareResult(data);
+    } catch (err) {
+      setError(networkError(err));
     } finally {
       setComparing(false);
     }
@@ -432,13 +523,15 @@ export default function App() {
   // Guards against starting a second job while one is polling: two concurrent
   // pollStatus loops would both write jobStatus/jobResult and clobber each other.
   const testRunning = jobStatus === "queued" || jobStatus === "running";
+  // The URL field was edited after the last analysis.
+  const targetChanged = analyzedUrl !== null && url !== analyzedUrl;
 
   // ---- Presentation ------------------------------------------------------
 
   // Workflow steps for the rail and the step panels. The active step is the
   // first one that can be done now but isn't done yet.
   const stepDefs = [
-    { n: 1, label: "Target", complete: analyzeResult != null, available: true, skipped: false },
+    { n: 1, label: "Target", complete: (isApi || isWebsite) && !targetChanged, available: true, skipped: false },
     { n: 2, label: "Sample request", complete: cases.length > 0, available: isApi, skipped: isWebsite },
     { n: 3, label: "Cases and load", complete: jobId != null, available: cases.length > 0, skipped: isWebsite },
     { n: 4, label: "Run and results", complete: jobResult != null, available: jobId != null, skipped: false },
@@ -464,17 +557,21 @@ export default function App() {
 
   return (
     <div style={{ fontFamily: font.sans, color: colors.text }}>
+      <a href="#main" className="skip-link">Skip to content</a>
       <div className="app-frame">
         <AppHeader apiBase={BASE} />
 
         <div className="app-shell">
           <StepRail steps={steps} />
 
-          <main className="app-main">
+          <main id="main" tabIndex={-1} className="app-main">
             {error && (
               <div
+                ref={errorRef}
                 role="alert"
+                tabIndex={-1}
                 style={{
+                  scrollMarginTop: 72,
                   display: "flex",
                   alignItems: "flex-start",
                   gap: space.sm,
@@ -493,7 +590,7 @@ export default function App() {
                   onClick={() => setError(null)}
                   aria-label="Dismiss error"
                   className="btn-bare"
-                  style={{ color: colors.textMuted, fontSize: type.heading, lineHeight: 1 }}
+                  style={iconButtonStyle}
                 >
                   ×
                 </button>
@@ -532,7 +629,13 @@ export default function App() {
                 />
               )}
 
-              {isWebsite && (
+              {targetChanged && (
+                <p role="status" style={{ margin: `${space.sm}px 0 0`, fontSize: type.meta, color: colors.warning }}>
+                  {TARGET_CHANGED_MESSAGE}
+                </p>
+              )}
+
+              {isWebsite && !targetChanged && (
                 <>
                   <LoadTestConfig
                     users={testUsers}
@@ -547,6 +650,7 @@ export default function App() {
                     onStart={startWebsiteLoadTest}
                     starting={startingWebsiteTest}
                     testRunning={testRunning}
+                    targetUrl={analyzedUrl}
                   />
                 </>
               )}
@@ -676,7 +780,7 @@ export default function App() {
                                 }}
                                 aria-label={`Remove custom case ${c.label}`}
                                 className="btn-bare"
-                                style={{ color: colors.textMuted, fontSize: type.heading, padding: `0 ${space.xs}px` }}
+                                style={iconButtonStyle}
                               >
                                 ×
                               </button>
@@ -743,13 +847,23 @@ export default function App() {
                   onDurationChange={setTestDuration}
                 />
 
+                {targetChanged ? (
+                  <p style={{ margin: `${space.sm}px 0 0`, fontSize: type.meta, color: colors.warning }}>
+                    {TARGET_CHANGED_MESSAGE}
+                  </p>
+                ) : (
+                  <p style={{ margin: `${space.sm}px 0 0`, fontSize: type.meta, color: colors.textMuted }}>
+                    Sends {selectedCount} case{selectedCount === 1 ? "" : "s"} to{" "}
+                    <span style={{ fontFamily: font.mono, color: colors.text, wordBreak: "break-all" }}>{analyzedUrl}</span>
+                  </p>
+                )}
                 <button
                   onClick={confirmAndStart}
                   className="btn btn-primary"
                   style={{ marginTop: space.sm }}
-                  disabled={testRunning}
+                  disabled={testRunning || startingApiTest || targetChanged}
                 >
-                  {testRunning ? "Test in progress…" : "Confirm selection and start load test"}
+                  {testRunning ? "Test in progress…" : startingApiTest ? "Starting…" : "Confirm selection and start load test"}
                 </button>
               </Section>
             )}
@@ -919,7 +1033,7 @@ export default function App() {
                               checked={checked}
                               disabled={full}
                               onChange={() => toggleCompareId(j.id)}
-                              aria-label={`Compare run started ${formatTime(j.created_at)}, ${j.users} users`}
+                              aria-label={`Compare run started ${formatTime(j.created_at)}, ${j.users} users, ${j.target_url}, ${j.status}${j.is_baseline ? ", baseline" : ""}`}
                             />
                             <span style={{ color: colors.accent }}>{checked ? `#${position + 1}` : ""}</span>
                             <span>{formatTime(j.created_at)}</span>
