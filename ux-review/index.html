@@ -1,0 +1,1084 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+        <link rel="canonical" href="https://tiet-ucs503.github.io/ucs503p-202627odd-template/ux-review/">
+      
+      
+        <link rel="prev" href="../features/">
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+  <title>UCS503: Software Engineering; Raghav
+    B. Venkataramaiyer @TIET</title>
+
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+  
+  
+  
+  
+  <style>:root{--md-annotation-icon:url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%3E%3Cpath%20d%3D%22M12%2020c-4.41%200-8-3.59-8-8s3.59-8%208-8%208%203.59%208%208-3.59%208-8%208m0-18A10%2010%200%200%200%202%2012a10%2010%200%200%200%2010%2010%2010%2010%200%200%200%2010-10A10%2010%200%200%200%2012%202m1%205h-2v4H7v2h4v4h2v-4h4v-2h-4z%22/%3E%3C/svg%3E');}</style>
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/_mkdocstrings.css">
+    
+      <link rel="stylesheet" href="../assets/stylesheets/extra.css">
+    
+      <link rel="stylesheet" href="https://unpkg.com/katex@0/dist/katex.min.css">
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="amber" data-md-color-accent="orange">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#ux-and-accessibility-review-elevate-load-tester-frontend" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="UCS503 : Software Engineering : Project Template" class="md-header__button md-logo" aria-label="UCS503 : Software Engineering : Project Template" data-md-component="logo">
+      
+  <img src="../assets/tiet-logo.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            UCS503 : Software Engineering : Project Template
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              UX and accessibility review: Elevate Load Tester frontend
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+    
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/tiet-ucs503/ucs503p-202627odd-template" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    ucs503p-202627odd-template
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+  
+
+<nav class="md-nav md-nav--primary md-nav--integrated" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="UCS503 : Software Engineering : Project Template" class="md-nav__button md-logo" aria-label="UCS503 : Software Engineering : Project Template" data-md-component="logo">
+      
+  <img src="../assets/tiet-logo.svg" alt="logo">
+
+    </a>
+    UCS503 : Software Engineering : Project Template
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/tiet-ucs503/ucs503p-202627odd-template" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    ucs503p-202627odd-template
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../criteria-for-project-selection/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Criteria for Project Selection
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../features/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Features explained
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    UX and accessibility review: Elevate Load Tester frontend
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    UX and accessibility review: Elevate Load Tester frontend
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#how-the-review-was-done" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How the review was done
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#1-visibility-of-system-status" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Visibility of system status
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-match-between-system-and-the-real-world" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Match between system and the real world
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-user-control-and-freedom" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. User control and freedom
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-consistency-and-standards" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Consistency and standards
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-error-prevention" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Error prevention
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-recognition-rather-than-recall" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Recognition rather than recall
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-flexibility-and-efficiency-of-use" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Flexibility and efficiency of use
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8-aesthetic-and-minimalist-design" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. Aesthetic and minimalist design
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#9-help-users-recognize-diagnose-and-recover-from-errors" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9. Help users recognize, diagnose, and recover from errors
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#10-help-and-documentation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        10. Help and documentation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#accessibility-wcag-22-aa" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Accessibility (WCAG 2.2 AA)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#all-issues" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        All issues
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="ux-and-accessibility-review-elevate-load-tester-frontend">UX and accessibility review: Elevate Load Tester frontend</h1>
+<p>Date: 9 October 2026. Scope: <code>code/frontend</code> (the dark "instrument console" design).</p>
+<h2 id="how-the-review-was-done">How the review was done</h2>
+<p>The real app was used in a browser, with the Flask backend on port 5000 and the mock
+target (<code>scripts/mock_target.py</code>) on port 8000. The full flow was run end to end:</p>
+<ol>
+<li>Analyze <code>http://127.0.0.1:8000/api/login</code>.</li>
+<li>Generate edge cases from <code>{"username":"demo","password":"demo123","expiresInMins":30}</code>.</li>
+<li>Add a custom case <code>admin_user</code>.</li>
+<li>Run 15 users (15 per second, 30 s) and mark it as the baseline.</li>
+<li>Run 150 users (20 per second, 30 s). This split across 3 workers and showed 3 regressions against the baseline.</li>
+<li>Download the Markdown report.</li>
+<li>Compare 3 runs.</li>
+<li>Analyze <code>https://example.com</code> and run a website test (2 users, 5 s).</li>
+</ol>
+<p>Error paths were also tried:</p>
+<ul>
+<li>a malformed URL;</li>
+<li>an unreachable URL;</li>
+<li>invalid JSON;</li>
+<li>a JSON array as the sample;</li>
+<li>starting with no cases selected;</li>
+<li>the backend not answering (simulated in the browser).</li>
+</ul>
+<p>The review uses Nielsen's 10 usability heuristics, from <code>.claude/skills/ux-heuristics-review</code>, and
+WCAG 2.2 AA, from <code>.claude/skills/accessibility</code>. Colour contrast was calculated from the theme tokens.</p>
+<p>Severity:</p>
+<ul>
+<li><strong>High:</strong> a user can lose work, test the wrong system, or think the app is broken.</li>
+<li><strong>Medium:</strong> it slows the user down or confuses them, but there is a way round it.</li>
+<li><strong>Low:</strong> polish.</li>
+</ul>
+<p>Every issue has an id (U1, A1 …) that matches the table at the end.</p>
+<hr />
+<h2 id="1-visibility-of-system-status">1. Visibility of system status</h2>
+<p><strong>Works well</strong>
+- A "Connected / Backend offline" light in the header checks the backend every 15 seconds.
+- Each step shows its state ("Current step", "Done", "Waiting", "Not needed"), both in the left rail and on the panel.
+- While a test runs, there is a progress bar, an elapsed-time counter and a live "Queued / Running / Completed" status.
+- Buttons change their label while busy ("Analyzing…", "Generating…", "Comparing…", "Test in progress…").</p>
+<p><strong>Issues</strong>
+- <strong>U1:</strong> Errors appear in a banner at the top of the page. When you press "Confirm selection and start load test" lower down (for example with no cases selected), the banner is about 900 px above the screen. It looks as if nothing happened.
+- <strong>U4:</strong> Step 1 showed "Done" even when the analysis failed (unreachable URL).
+- <strong>U9:</strong> After starting a test, the progress panel appears below the bottom of the screen, so there is no visible response to the click.
+- <strong>U20:</strong> After analyzing a new target, step 4 still shows the previous run's result, identified only by its run id.</p>
+<p><strong>Severity: high.</strong> A click that seems to do nothing makes the app look broken (U1).</p>
+<h2 id="2-match-between-system-and-the-real-world">2. Match between system and the real world</h2>
+<p><strong>Works well</strong>
+- The "Summary of results" uses plain sentences ("22 cases were rejected as invalid input (400)").
+- Outcomes are named the way people talk about them (Passed, Rejected, Rate limited, Server error).
+- p95 is explained under the number ("95% were faster").</p>
+<p><strong>Issues</strong>
+- <strong>U12:</strong> "Failure rate" counts every non-2xx response as a failure, including 400s for deliberately invalid edge cases. A correct API that rejects bad input shows an alarming "89.9% failure rate". The summary sentences explain it, but the headline number does not.
+- <strong>U15:</strong> "Spawn rate" is load-testing jargon.</p>
+<p><strong>Severity: medium.</strong> The headline number can mislead someone who doesn't read the summary.</p>
+<h2 id="3-user-control-and-freedom">3. User control and freedom</h2>
+<p><strong>Works well</strong>
+- Every case can be ticked or unticked, and whole categories toggled.
+- Custom cases can be removed.
+- Runs can be ticked or unticked for comparison.
+- Raw responses can be shown and hidden.
+- Errors can be dismissed.
+- The step rail only scrolls; it never hides work.</p>
+<p><strong>Issues</strong>
+- <strong>U13:</strong> There is no way to stop a running test. You have to wait up to the full duration (up to 300 s).</p>
+<p><strong>Severity: medium.</strong> You can wait it out, but a mistaken 300-second run blocks all other tests.</p>
+<h2 id="4-consistency-and-standards">4. Consistency and standards</h2>
+<p><strong>Works well</strong>
+- There is one primary button style, one secondary style and one link style throughout.
+- Status colours mean the same thing everywhere (strip, table, findings, comparison).
+- Times are always local and use the same format.</p>
+<p><strong>Issues</strong>
+- <strong>U14:</strong> The website button said "Run Website Load Test" and "Starting...". Every other button uses sentence case and the "…" character.</p>
+<p><strong>Severity: low.</strong> It is cosmetic.</p>
+<h2 id="5-error-prevention">5. Error prevention</h2>
+<p><strong>Works well</strong>
+- The start buttons are disabled while a test runs, so a second test can't clobber the first.
+- "Select at least one edge case" stops an empty test.
+- Custom cases are validated by the backend before they are added.
+- The number fields show their allowed range in the label.
+- The comparison is limited to 2–4 runs, and extra checkboxes are disabled.</p>
+<p><strong>Issues</strong>
+- <strong>U3:</strong> After analyzing a different URL, the old API cases stayed on screen and "Confirm selection and start load test" still worked. The test was sent to whatever URL was in the field at that moment. During the walkthrough, step 3 (built for the mock API) was still active after analyzing example.com. One click would have sent 26 API edge cases to a third-party website. Editing the URL field without re-analyzing had the same effect.
+- <strong>U7:</strong> A malformed URL ("not a url") was sent to the backend, which answered only "Could not reach or analyze that URL".
+- <strong>U10:</strong> Out-of-range numbers were silently changed (5000 users became 1000) with no message.
+- <strong>U11:</strong> The API start button stayed clickable while the two start requests were in flight, before the run id came back.</p>
+<p><strong>Severity: high.</strong> U3 can load-test the wrong system.</p>
+<h2 id="6-recognition-rather-than-recall">6. Recognition rather than recall</h2>
+<p><strong>Works well</strong>
+- Each step has a one-line description.
+- The selected count is always shown ("27 of 27 selected").
+- The comparison shows "#1, #2, #3" next to ticked runs, and the baseline is starred in the history.</p>
+<p><strong>Issues</strong>
+- <strong>U8:</strong> The start button did not say where the test would go. You had to scroll up to the URL field and remember whether it had been analyzed.
+- <strong>U16:</strong> The run history shows only the host (<code>http://127.0.0.1:8000</code>), not the path. Two endpoints on the same server look identical.</p>
+<p><strong>Severity: medium.</strong> You need to remember the target at the moment it matters most.</p>
+<h2 id="7-flexibility-and-efficiency-of-use">7. Flexibility and efficiency of use</h2>
+<p><strong>Works well</strong>
+- Enter in the URL field starts the analysis, and Enter commits the number fields.
+- Select all / none and per-category toggles make large case lists quick.
+- Results tables can be sorted and switched between flat and grouped views.</p>
+<p><strong>Issues</strong>
+- <strong>U18:</strong> The run history keeps growing (50 rows in this session) with no filter, search or delete.</p>
+<p><strong>Severity: low.</strong> It only becomes a problem after many runs.</p>
+<h2 id="8-aesthetic-and-minimalist-design">8. Aesthetic and minimalist design</h2>
+<p><strong>Works well</strong>
+- It is a quiet dark theme with one accent colour.
+- Numbers are the visual focus, and details (raw JSON, data tables, failure reasons) are tucked behind toggles.
+- The step layout keeps one task per panel.</p>
+<p><strong>Issues</strong>
+- No significant issues. U18 (the long history list) is the only clutter found.</p>
+<p><strong>Severity: low.</strong></p>
+<h2 id="9-help-users-recognize-diagnose-and-recover-from-errors">9. Help users recognize, diagnose, and recover from errors</h2>
+<p><strong>Works well</strong>
+- Invalid JSON gets "Sample input must be valid JSON".
+- A custom case gets a specific reason it was rejected.
+- The analyze network error names the backend address to check.
+- "Why did these fail?" groups failures by type with an example.</p>
+<p><strong>Issues</strong>
+- <strong>U2:</strong> If the backend stopped answering, these actions failed with no message at all:
+  - Generate;
+  - Validate and add;
+  - both start buttons;
+  - Compare;
+  - Mark as baseline.</p>
+<p>The button just went back to normal.
+- <strong>U5:</strong> Backend errors were shown as raw JSON, for example <code>{"error":"sample_input (object) is required"}</code>.
+- <strong>U6:</strong> An unreachable target showed only the raw Python exception (<code>HTTPConnectionPool(host='127.0.0.1', port=9): Max retries exceeded …</code>).
+- <strong>U17:</strong> If the backend goes down during a run, the status stays "Running" forever, because the status poll has no error handling.</p>
+<p><strong>Severity: high.</strong> Silent failures (U2) give the user nothing to act on.</p>
+<h2 id="10-help-and-documentation">10. Help and documentation</h2>
+<p><strong>Works well</strong>
+- Step descriptions explain each stage.
+- Notes appear under numbers (approximate p95 for split runs, low-sample cells in the comparison).
+- A sentence above the timeline explains how Locust computes averages and p95.</p>
+<p><strong>Issues</strong>
+- <strong>U19:</strong> Some explanations exist only as hover tooltips (<code>title</code>), for example "Split across 3 workers" and the p95 approximation in table cells. Keyboard and touch users can't see them.</p>
+<p><strong>Severity: low.</strong> The key explanations are also in visible text.</p>
+<hr />
+<h2 id="accessibility-wcag-22-aa">Accessibility (WCAG 2.2 AA)</h2>
+<p><strong>Already in place</strong>
+- <code>lang="en"</code>.
+- One <code>h1</code>, <code>h2</code> per step and <code>h3</code> per sub-section.
+- Every input has a label.
+- Visible focus outline (2 px accent).
+- <code>aria-current="step"</code> in the rail.
+- <code>aria-sort</code> on sortable headers.
+- <code>aria-pressed</code> on the Flat / Grouped toggle.
+- <code>aria-expanded</code> on disclosures.
+- <code>role="alert"</code> on errors and <code>role="status"</code> for the run status.
+- The progress bar has <code>aria-valuenow</code>.
+- The charts have a data-table alternative (1.1.1).
+- Outcomes and changes never rely on colour alone (labels, ▲/▼ arrows, percentages).
+- A reduced-motion rule.</p>
+<p><strong>Issues found</strong>
+- <strong>A1. 1.4.3 Contrast (Minimum):</strong> the "faint" text colour <code>#5F676E</code> used for informative text had these contrast ratios:</p>
+<table>
+<thead>
+<tr>
+<th>Background</th>
+<th>Contrast</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Page</td>
+<td>3.24:1</td>
+</tr>
+<tr>
+<td>Panels</td>
+<td>3.04:1</td>
+</tr>
+<tr>
+<td>Raised sub-panels</td>
+<td>2.78:1</td>
+</tr>
+<tr>
+<td>Inputs</td>
+<td>3.34:1</td>
+</tr>
+</tbody>
+</table>
+<p>This text includes the "Waiting" / "Not needed" step states, case labels, the "—" and "0%" cells in the comparison, and counts in the outcome strip. AA needs 4.5:1. All other text colours pass: muted text is 5.3–6.4:1, and the accent and status colours are all above 4.5:1.
+- <strong>A2. 2.4.1 Bypass Blocks:</strong> there was no skip link. Keyboard users had to tab through the five step-rail buttons before reaching the content.
+- <strong>A3. 2.5.8 Target Size (Minimum):</strong> the "×" buttons (dismiss error, remove custom case) were 15 px wide.
+- <strong>A4. 2.4.3 Focus Order / 4.1.3 Status Messages:</strong> errors raised far down the page were announced, but focus stayed on the button and the banner stayed off-screen (see U1).
+- <strong>A5. 1.3.1 Info and Relationships:</strong> the run-history header row is hidden from screen readers. Each run's checkbox was announced only with its start time and user count, not its target, status or baseline flag.
+- <strong>A6. 1.3.1 / 3.3.2:</strong> tooltip-only explanations (U19).
+- <strong>Checked and passing:</strong> checkboxes are 13 px, but each sits inside a full-width clickable row (2.5.8 passes). Sort headers are 18 px tall but have enough space around them (2.5.8 spacing exception).</p>
+<hr />
+<h2 id="all-issues">All issues</h2>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Heuristic / guideline</th>
+<th>Severity</th>
+<th>Description</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>U1</td>
+<td>H1 Visibility of system status</td>
+<td>High</td>
+<td>Error banner shows at the top of the page, off-screen, when an action lower down fails. The click looks ignored.</td>
+<td>Fixed: the banner scrolls into view and takes focus when an error appears.</td>
+</tr>
+<tr>
+<td>U2</td>
+<td>H9 Recover from errors</td>
+<td>High</td>
+<td>Network failures in Generate, Validate and add, both start buttons, Compare and Mark as baseline gave no message.</td>
+<td>Fixed: each shows "<reason> (Is the backend reachable at …?)", the same wording as Analyze.</td>
+</tr>
+<tr>
+<td>U3</td>
+<td>H5 Error prevention</td>
+<td>High</td>
+<td>Old API cases stayed active after analyzing a different URL. Editing the URL field redirected the next test without re-analysis, so API edge cases could hit a third-party site.</td>
+<td>Fixed: cases are cleared when a different URL is analyzed, and both start actions are blocked with a message while the URL differs from the analyzed one.</td>
+</tr>
+<tr>
+<td>U4</td>
+<td>H1 Visibility of system status</td>
+<td>Medium</td>
+<td>Step 1 showed "Done" after a failed analysis.</td>
+<td>Fixed: Done only after a successful API or website analysis of the current URL.</td>
+</tr>
+<tr>
+<td>U5</td>
+<td>H9 Recover from errors</td>
+<td>Medium</td>
+<td>Backend errors shown as raw JSON.</td>
+<td>Fixed: the error sentence is shown, with JSON only as a last resort.</td>
+</tr>
+<tr>
+<td>U6</td>
+<td>H9 Recover from errors</td>
+<td>Medium</td>
+<td>Unreachable target showed only a raw Python exception.</td>
+<td>Fixed: a plain-English message, with the technical detail in smaller text below.</td>
+</tr>
+<tr>
+<td>U7</td>
+<td>H5 Error prevention</td>
+<td>Medium</td>
+<td>Malformed URL got a generic "Could not reach or analyze that URL".</td>
+<td>Fixed: checked before sending ("Enter a full URL starting with http:// or https://…").</td>
+</tr>
+<tr>
+<td>U8</td>
+<td>H6 Recognition rather than recall</td>
+<td>Medium</td>
+<td>The start buttons didn't show the target.</td>
+<td>Fixed: "Sends N cases to <url>" above the API button, and the URL in the website note.</td>
+</tr>
+<tr>
+<td>U9</td>
+<td>H1 Visibility of system status</td>
+<td>Medium</td>
+<td>Progress panel appeared off-screen after starting a test.</td>
+<td>Fixed: the page scrolls to "Run and results" when a run starts.</td>
+</tr>
+<tr>
+<td>U10</td>
+<td>H5 Error prevention</td>
+<td>Medium</td>
+<td>Out-of-range numbers silently changed.</td>
+<td>Fixed: a note under the field, such as "Set to 1000, the maximum".</td>
+</tr>
+<tr>
+<td>U11</td>
+<td>H5 Error prevention</td>
+<td>Medium</td>
+<td>API start button clickable while the start requests were in flight.</td>
+<td>Fixed: it shows "Starting…" and is disabled until the run starts or fails.</td>
+</tr>
+<tr>
+<td>U12</td>
+<td>H2 Real-world match</td>
+<td>Medium</td>
+<td>"Failure rate" counts expected 400 rejections of invalid inputs as failures.</td>
+<td>Deferred: changing what "failure" means affects results, comparison, baseline regressions, the report and the backend's numbers, so it needs a team decision. The summary sentences already explain the 400s.</td>
+</tr>
+<tr>
+<td>U13</td>
+<td>H3 User control</td>
+<td>Medium</td>
+<td>No way to stop a running test.</td>
+<td>Deferred: there is no backend endpoint to stop a run, and backend changes were out of scope.</td>
+</tr>
+<tr>
+<td>U17</td>
+<td>H9 Recover from errors</td>
+<td>Medium</td>
+<td>If the backend goes down mid-run, the status stays "Running" forever.</td>
+<td>Deferred: the fix belongs in <code>pollStatus()</code>, which must not be changed. The header light turns red within 15 s, which partly covers it.</td>
+</tr>
+<tr>
+<td>U14</td>
+<td>H4 Consistency</td>
+<td>Low</td>
+<td>"Run Website Load Test" / "Starting..." didn't match the other buttons.</td>
+<td>Fixed: "Run website load test" / "Starting…".</td>
+</tr>
+<tr>
+<td>U15</td>
+<td>H2 Real-world match</td>
+<td>Low</td>
+<td>"Spawn rate" is jargon.</td>
+<td>Fixed: the label is now "New users per second (spawn rate), 1 to 20".</td>
+</tr>
+<tr>
+<td>U16</td>
+<td>H6 Recognition rather than recall</td>
+<td>Low</td>
+<td>Run history shows only the host, not the path.</td>
+<td>Deferred: the backend stores and returns only the host.</td>
+</tr>
+<tr>
+<td>U18</td>
+<td>H7 Flexibility / H8 Minimalism</td>
+<td>Low</td>
+<td>Run history grows without filter or delete.</td>
+<td>Deferred: delete needs a backend endpoint, and filtering is a feature rather than a fix.</td>
+</tr>
+<tr>
+<td>U19</td>
+<td>H10 Help</td>
+<td>Low</td>
+<td>Some explanations exist only as hover tooltips.</td>
+<td>Deferred: the important ones are also visible text; the rest is polish.</td>
+</tr>
+<tr>
+<td>U20</td>
+<td>H1 Visibility of system status</td>
+<td>Low</td>
+<td>After analyzing a new target, step 4 still shows the old run with only its id.</td>
+<td>Deferred: low risk. The run id and "Pages tested" line identify it, and the next run replaces it.</td>
+</tr>
+<tr>
+<td>A1</td>
+<td>WCAG 1.4.3 Contrast</td>
+<td>Medium</td>
+<td>Faint text was 2.78–3.34:1 (needs 4.5:1).</td>
+<td>Fixed: <code>textFaint</code> is now <code>#818A92</code>, at least 4.56:1 on every surface and still below the muted text.</td>
+</tr>
+<tr>
+<td>A2</td>
+<td>WCAG 2.4.1 Bypass blocks</td>
+<td>Medium</td>
+<td>No skip link.</td>
+<td>Fixed: a "Skip to content" link is the first focusable element and appears on focus.</td>
+</tr>
+<tr>
+<td>A3</td>
+<td>WCAG 2.5.8 Target size</td>
+<td>Low</td>
+<td>"×" buttons were 15 px wide.</td>
+<td>Fixed: at least 24 × 24 px.</td>
+</tr>
+<tr>
+<td>A4</td>
+<td>WCAG 2.4.3 / 4.1.3</td>
+<td>High</td>
+<td>Errors far down the page left focus on the button and the banner off-screen.</td>
+<td>Fixed with U1: focus moves to the banner.</td>
+</tr>
+<tr>
+<td>A5</td>
+<td>WCAG 1.3.1 Info and relationships</td>
+<td>Low</td>
+<td>Run-history checkboxes were announced without target, status or baseline.</td>
+<td>Fixed: the checkbox label now includes all of them.</td>
+</tr>
+<tr>
+<td>A6</td>
+<td>WCAG 1.3.1 / 3.3.2</td>
+<td>Low</td>
+<td>Tooltip-only explanations.</td>
+<td>Deferred: same as U19.</td>
+</tr>
+</tbody>
+</table>
+
+
+
+
+
+
+
+  
+    
+  
+  
+
+
+  <aside class="md-source-file">
+    
+      
+  <span class="md-source-file__fact">
+    <span class="md-icon" title="Last update">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
+    </span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="October 9, 2026 05:35:02 UTC">October 9, 2026</span>
+  </span>
+
+    
+    
+    
+      
+  
+  <span class="md-source-file__fact">
+    <span class="md-icon" title="Contributors">
+      
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 4a4 4 0 0 1 4 4 4 4 0 0 1-4 4 4 4 0 0 1-4-4 4 4 0 0 1 4-4m0 10c4.42 0 8 1.79 8 4v2H4v-2c0-2.21 3.58-4 8-4"/></svg>
+      
+    </span>
+    <nav>
+      
+        <a href="mailto:anant.agrawal9906@gmail.com">Anant Agrawal</a>
+    </nav>
+  </span>
+
+    
+    
+  </aside>
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../features/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Features explained">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                Features explained
+              </div>
+            </div>
+          </a>
+        
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      Copyright &copy; 2025 <a href='https://bvraghav.com/'>Raghav B. Venkataramaiyer</a> &lt;<code style='color:inherit; background:transparent'>bv.raghav</code>&gt;
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+    <a href="https://github.com/tiet-ucs503/ucs503p-202627odd-template" target="_blank" rel="noopener" title="Git Repo for UCS503P Project Template" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.footer", "header.autohide", "content.tabs.link", "navigation.tracking", "navigation.top", "toc.integrate", "content.tooltips"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="https://unpkg.com/katex@0/dist/katex.min.js"></script>
+      
+        <script src="../javascript/arithmatex.js"></script>
+      
+    
+  </body>
+</html>
