@@ -378,13 +378,16 @@ file.
 
 ---
 
-## 13. Findings summary
+## 13. Summary of results and key figures
 
-**What it does.** At the top of every completed result, two to four plain
-sentences say what happened, for example "2 cases caused server errors (500)
-on 95 requests", "Rate limiting (429) on 1,963 requests across 27 cases" or
-"3 cases got worse than the baseline run". Each sentence has a coloured marker
-that matches its status colour.
+**What it does.** At the top of every completed result, a "Summary of results"
+gives two to four numbered sentences saying what happened, for example "2 cases
+caused server errors (500) on 95 requests", "Rate limiting (429) on 1,963
+requests across 27 cases" or "3 cases got worse than the baseline run". Each
+sentence starts with a small square in its status colour. Below it, a row of
+key figures (requests, failure rate with "285 of 327" underneath, average and
+p95 response, requests per second, duration) is separated by thin vertical
+dividers; on a phone the row becomes two columns.
 
 **Why it exists.** A results page full of numbers takes time to read. The
 findings give the conclusion first, so a viewer knows what to look for.
@@ -395,7 +398,9 @@ rows and the baseline comparison — and turns it into sentences, most serious
 first. No backend change.
 
 **Files.** `code/frontend/src/utils/findings.js`,
-`code/frontend/src/components/Findings.jsx`, `JobResultSummary.jsx`.
+`code/frontend/src/components/Findings.jsx`, `JobResultSummary.jsx` (the
+key-figure row), `code/frontend/src/index.css` (`.stat-row`: the dividers and
+the two-column phone layout).
 
 **Demo.** Finish a 150-user mock run after marking a 15-user run as the
 baseline: the findings list server errors, the regressions, rate limiting and

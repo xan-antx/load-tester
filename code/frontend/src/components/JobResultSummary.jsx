@@ -17,15 +17,15 @@ function rowStats(r) {
   return { requests, failures, rate: requests > 0 ? (failures / requests) * 100 : 0 };
 }
 
-// One cell of the readout strip at the top of a result.
-function Readout({ label, value, sub, title }) {
+// One key figure in the stats row: sentence-case label above, the number,
+// and an optional note below. Dividers between figures come from .stat-row
+// in index.css.
+function KeyFigure({ label, value, note, title }) {
   return (
-    <div title={title} style={{ background: colors.surfaceRaised, padding: `${space.md}px ${space.lg}px` }}>
-      <div style={{ fontFamily: font.mono, fontSize: type.meta, color: colors.textMuted }}>{label}</div>
-      <div style={{ fontFamily: font.mono, fontSize: type.readout, fontWeight: 500, lineHeight: 1.25, color: colors.text }}>
-        {value}
-      </div>
-      {sub && <div style={{ fontFamily: font.mono, fontSize: type.meta, color: colors.textFaint }}>{sub}</div>}
+    <div title={title}>
+      <div style={{ fontSize: type.meta, color: colors.textMuted }}>{label}</div>
+      <div style={{ fontFamily: font.mono, fontSize: type.readout, lineHeight: 1.2, color: colors.text }}>{value}</div>
+      {note && <div style={{ fontSize: type.meta, color: colors.textMuted }}>{note}</div>}
     </div>
   );
 }
@@ -254,32 +254,22 @@ export default function JobResultSummary({ data, showRaw, onToggleRaw, regressio
 
       {agg && (
         <>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
-              gap: 1,
-              background: colors.borderSubtle,
-              border: `1px solid ${colors.borderSubtle}`,
-              borderRadius: radius.md,
-              overflow: "hidden",
-            }}
-          >
-            <Readout label="Requests" value={agg.requests.toLocaleString()} />
-            <Readout
+          <div className="stat-row">
+            <KeyFigure label="Requests" value={agg.requests.toLocaleString()} />
+            <KeyFigure
               label="Failure rate"
               value={`${agg.rate.toFixed(1)}%`}
-              sub={`${agg.failures.toLocaleString()} of ${agg.requests.toLocaleString()} failed`}
+              note={`${agg.failures.toLocaleString()} of ${agg.requests.toLocaleString()}`}
             />
-            <Readout label="Avg response" value={`${Math.round(Number(aggregated["Average Response Time"]))} ms`} />
-            <Readout
+            <KeyFigure label="Avg response" value={`${Math.round(Number(aggregated["Average Response Time"]))} ms`} />
+            <KeyFigure
               label="p95 response"
               value={`${approx}${formatMs(aggregated["95%"])} ms`}
-              sub={isGroup ? "approximate (split run)" : "95% were faster"}
+              note={isGroup ? "approximate (split run)" : "95% were faster"}
               title={isGroup ? P95_APPROX_NOTE : "95% of requests finished within this time."}
             />
-            <Readout label="Requests / s" value={Number(aggregated["Requests/s"]).toFixed(2)} />
-            <Readout
+            <KeyFigure label="Requests / s" value={Number(aggregated["Requests/s"]).toFixed(2)} />
+            <KeyFigure
               label="Duration"
               value={data.duration_seconds != null ? `${data.duration_seconds} s` : "—"}
             />

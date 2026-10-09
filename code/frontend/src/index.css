@@ -302,6 +302,35 @@ input[type="checkbox"] {
 }
 
 /* Progress: scaled with transform (not width) so only compositing changes. */
+/* Key figures at the top of a result: no box, thin vertical dividers.
+   On phones it becomes two columns, with a divider only between them. */
+.stat-row {
+  display: flex;
+  flex-wrap: wrap;
+  row-gap: var(--space-lg);
+}
+.stat-row > * {
+  padding: 0 var(--space-xl);
+  border-left: 1px solid var(--c-border);
+}
+.stat-row > :first-child {
+  padding-left: 0;
+  border-left: none;
+}
+@media (max-width: 640px) {
+  .stat-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+  .stat-row > :nth-child(odd) {
+    padding-left: 0;
+    border-left: none;
+  }
+  .stat-row > :nth-child(even) {
+    padding-right: 0;
+  }
+}
+
 .progress-fill {
   height: 100%;
   background: var(--c-accent);

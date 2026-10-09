@@ -7,31 +7,32 @@ function toneColor(tone) {
   return (outcome[tone] || outcome.other).fg;
 }
 
+// "Summary of results": two to four plain sentences, numbered, each with a
+// square marker in its status colour.
 export default function Findings({ findings }) {
   if (!findings || findings.length === 0) return null;
   return (
-    <div style={{ marginBottom: space.lg }}>
-      <h3 style={{ margin: `0 0 ${space.sm}px`, fontSize: type.body, fontWeight: 600, color: colors.text }}>
-        Findings
+    <div style={{ marginBottom: space.xl, maxWidth: "75ch" }}>
+      <h3 style={{ margin: `0 0 ${space.sm}px`, fontSize: type.heading, fontWeight: 600, color: colors.text }}>
+        Summary of results
       </h3>
-      <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: space.sm }}>
+      <ol style={{ margin: 0, paddingLeft: space.xl, display: "grid", gap: space.sm, color: colors.textMuted }}>
         {findings.map((f) => (
-          <li key={f.text} style={{ display: "flex", alignItems: "baseline", gap: space.sm, fontSize: type.heading, color: colors.text }}>
+          <li key={f.text} style={{ fontSize: type.heading, paddingLeft: space.xs }}>
             <span
               aria-hidden="true"
               style={{
-                flex: "none",
+                display: "inline-block",
                 width: 10,
                 height: 10,
-                borderRadius: 2,
+                marginRight: space.sm,
                 background: toneColor(f.tone),
-                transform: "translateY(1px)",
               }}
             />
-            {f.text}
+            <span style={{ color: colors.text }}>{f.text}</span>
           </li>
         ))}
-      </ul>
+      </ol>
     </div>
   );
 }
