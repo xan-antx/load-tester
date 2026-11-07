@@ -11,6 +11,8 @@ Behaviour (all deliberate, so results are predictable):
   * A global rate limiter: once more than MOCK_RATE_LIMIT requests arrive in
     the same second (default 40), every further request that second gets 429.
   * Every request waits 50-150 ms so response times look realistic.
+  * Optional: if MOCK_REQUIRE_TOKEN is set, every request must carry
+    "Authorization: Bearer <that token>", otherwise it gets 401.
 
 Run it with:  python scripts/mock_target.py   (listens on http://127.0.0.1:8000)
 """
@@ -27,6 +29,8 @@ VALID_PASSWORD = "demo123"
 DEFAULT_EXPIRES_IN_MINS = 60
 MAX_EXPIRES_IN_MINS = 1_000_000
 RATE_LIMIT_PER_SECOND = int(os.environ.get("MOCK_RATE_LIMIT", "40"))
+# Empty = no authentication required (the default).
+REQUIRED_TOKEN = os.environ.get("MOCK_REQUIRE_TOKEN", "")
 
 app = Flask(__name__)
 
@@ -68,6 +72,9 @@ def _resolve_expiry(expires):
 def login():
     time.sleep(random.uniform(0.05, 0.15))
 
+    if REQUIRED_TOKEN and request.headers.get("Authorization") != f"Bearer {REQUIRED_TOKEN}":
+        return jsonify({"message": "Missing or wrong bearer token"}), 401
+
     if _over_rate_limit():
         return jsonify({"message": "Too many requests"}), 429
 
@@ -96,5 +103,6 @@ def login():
 if __name__ == "__main__":
     # Per-request access logs would flood the console under load.
     logging.getLogger("werkzeug").setLevel(logging.WARNING)
-    print(f"Mock target on http://127.0.0.1:8000/api/login (rate limit {RATE_LIMIT_PER_SECOND} req/s)")
+    print(f"Mock target on http://127.0.0.1:8000/api/login (rate limit {RATE_LIMIT_PER_SECOND} req/s"
+          f"{', bearer token required' if REQUIRED_TOKEN else ''})")
     app.run(host="127.0.0.1", port=8000, threaded=True, debug=False)

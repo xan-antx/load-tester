@@ -41,7 +41,7 @@ export function buildMarkdownReport(run, regressionInfo) {
     `- URL: ${run.target_url}`,
     `- Run id: ${id}`,
     `- Started: ${formatTime(run.created_at)}`,
-    `- Status: ${run.status}`,
+    `- Status: ${run.status === "cancelled" ? "cancelled — partial results" : run.status}`,
     "",
     "## Configuration",
     "",
@@ -49,6 +49,8 @@ export function buildMarkdownReport(run, regressionInfo) {
     `- Spawn rate: ${run.spawn_rate} users/s`,
     `- Duration: ${run.duration_seconds} s`,
     `- Workers: ${isGroup ? `${run.child_jobs.length} (split run)` : "1"}`,
+    // Header names only; the values are never available to the browser report.
+    `- Request headers: ${run.header_names?.length ? `${run.header_names.join(", ")} (values not included)` : "none"}`,
     "",
   ];
 
@@ -62,11 +64,17 @@ export function buildMarkdownReport(run, regressionInfo) {
           ["Total requests", total["Request Count"]],
           ["Failures", total["Failure Count"]],
           ["Failure rate", `${num(rate(total), 1)}%`],
+          ["Problem rate (5xx, 429, connection)", run.problem_rate == null ? "—" : `${num(run.problem_rate, 1)}%`],
           ["Average response", `${num(total["Average Response Time"])} ms`],
           ["p95 response", `${approx}${num(total["95%"])} ms`],
           ["Requests per second", num(total["Requests/s"], 2)],
         ]
       ),
+      "",
+    );
+    lines.push(
+      "Failure rate counts every non-2xx answer, including 4xx rejections of invalid input. " +
+        "Problem rate counts only server errors, rate limiting and connection failures.",
       "",
     );
     if (isGroup) {

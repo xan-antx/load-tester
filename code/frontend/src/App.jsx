@@ -6,8 +6,10 @@ import CompareView from "./components/CompareView";
 import WebsiteLoadTestSection from "./components/WebsiteLoadTestSection";
 import LoadTestConfig, { LIMITS, clampInt } from "./components/LoadTestConfig";
 import RunActions from "./components/RunActions";
+import SeriesSummary from "./components/SeriesSummary";
 import AppHeader from "./components/AppHeader";
 import StepRail from "./components/StepRail";
+import RequestHeadersEditor, { headersObject } from "./components/RequestHeadersEditor";
 import { colors, font, space, radius, type, z } from "./theme";
 import { formatTime } from "./utils/formatTime";
 
@@ -26,6 +28,9 @@ function describeError(data, fallback) {
   if (data?.reason) return data.reason;
   return data ? `${fallback}: ${JSON.stringify(data)}` : fallback;
 }
+
+// 15 failed polls at 2 s each: about 30 seconds without the backend.
+const MAX_POLL_FAILURES = 15;
 
 const TARGET_CHANGED_MESSAGE =
   "The target URL has changed since it was analyzed. Click Analyze before starting a test.";
@@ -77,11 +82,15 @@ export default function App() {
   const [customLabel, setCustomLabel] = useState("");
   const [customPayloadText, setCustomPayloadText] = useState("");
   const [customMessage, setCustomMessage] = useState(null);
+  // Optional request headers: [{id, name, value}]. Kept in memory only.
+  const [requestHeaders, setRequestHeaders] = useState([]);
 
   const [testUsers, setTestUsers] = useState(3);
   const [testSpawnRate, setTestSpawnRate] = useState(1);
   // 30 s by default: shorter runs give too few requests per case to compare.
   const [testDuration, setTestDuration] = useState(30);
+  // How many times to run the same test back to back (a "series").
+  const [testRepeat, setTestRepeat] = useState(1);
 
   const [jobId, setJobId] = useState(null);
   const [runStartedAt, setRunStartedAt] = useState(null);
@@ -107,6 +116,11 @@ export default function App() {
   const [comparing, setComparing] = useState(false);
   const [startingWebsiteTest, setStartingWebsiteTest] = useState(false);
   const [startingApiTest, setStartingApiTest] = useState(false);
+  // Status polling health: null = fine, "retrying" = the last poll failed,
+  // "lost" = MAX_POLL_FAILURES polls in a row failed and polling stopped.
+  const [pollState, setPollState] = useState(null);
+  // "Stop test": null, "confirm" (asking), or "stopping" (request sent).
+  const [stopState, setStopState] = useState(null);
   const errorRef = useRef(null);
 
   useEffect(() => {
@@ -142,7 +156,7 @@ export default function App() {
   // baseline. Kept out of pollStatus() on purpose.
   useEffect(() => {
     setRegressionInfo(null);
-    if (jobResult?.status === "completed" && jobId) {
+    if (jobResult?.status === "completed" && jobId && !jobResult.series_id) {
       loadRegressionInfo(jobId);
     }
   }, [jobResult, jobId]);
@@ -206,7 +220,7 @@ export default function App() {
       const resp = await fetch(`${BASE}/api/analyze`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url }),
+        body: JSON.stringify({ url, headers: headersObject(requestHeaders) }),
       });
       const data = await resp.json();
       setAnalyzeResult(data);
@@ -358,6 +372,7 @@ export default function App() {
       users: clampInt(testUsers, LIMITS.users),
       spawnRate: clampInt(testSpawnRate, LIMITS.spawnRate),
       duration: clampInt(testDuration, LIMITS.duration),
+      repeat: clampInt(testRepeat, LIMITS.repeat),
     };
   }
 
@@ -402,10 +417,12 @@ export default function App() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           url,
+          headers: headersObject(requestHeaders),
           confirmed_cases: confirmData.confirmed_cases,
           users: settings.users,
           spawn_rate: settings.spawnRate,
           duration_seconds: settings.duration,
+          repeat: settings.repeat,
         }),
       });
       const startData = await startResp.json();
@@ -417,10 +434,13 @@ export default function App() {
       setWebsitePathsUsed(null);
       setJobId(startData.job_id);
       setRunStartedAt(Date.now());
-      setRunDuration(settings.duration);
+      // A series runs back to back, so the estimate covers every repeat.
+      setRunDuration(settings.duration * settings.repeat);
       setElapsedSec(0);
       setJobStatus("queued");
       setJobResult(null);
+      setPollState(null);
+      setStopState(null);
       pollStatus(startData.job_id);
     } catch (err) {
       setError(networkError(err));
@@ -444,10 +464,12 @@ export default function App() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           url,
+          headers: headersObject(requestHeaders),
           sitemap_raw: sitemapRaw,
           users: settings.users,
           spawn_rate: settings.spawnRate,
           duration_seconds: settings.duration,
+          repeat: settings.repeat,
         }),
       });
       const data = await resp.json();
@@ -459,10 +481,13 @@ export default function App() {
       setWebsitePathsUsed(data.paths_used || []);
       setJobId(data.job_id);
       setRunStartedAt(Date.now());
-      setRunDuration(settings.duration);
+      // A series runs back to back, so the estimate covers every repeat.
+      setRunDuration(settings.duration * settings.repeat);
       setElapsedSec(0);
       setJobStatus("queued");
       setJobResult(null);
+      setPollState(null);
+      setStopState(null);
       pollStatus(data.job_id);
     } catch (err) {
       setError(networkError(err));
@@ -472,12 +497,28 @@ export default function App() {
   }
 
   function pollStatus(id) {
+    let failures = 0;
     const poll = async () => {
-      const resp = await fetch(`${BASE}/api/load-test-status/${id}`);
-      const data = await resp.json();
+      let data;
+      try {
+        const resp = await fetch(`${BASE}/api/load-test-status/${id}`);
+        data = await resp.json();
+      } catch {
+        // Keep the same 2-second rhythm; give up after MAX_POLL_FAILURES.
+        failures += 1;
+        if (failures >= MAX_POLL_FAILURES) {
+          setPollState("lost");
+          return;
+        }
+        setPollState("retrying");
+        setTimeout(poll, 2000);
+        return;
+      }
+      failures = 0;
+      setPollState(null);
       setJobStatus(data.status);
 
-      if (["completed", "failed", "timeout"].includes(data.status)) {
+      if (["completed", "failed", "timeout", "cancelled"].includes(data.status)) {
         setJobResult(data);
         refreshJobHistory();
         return;
@@ -485,6 +526,28 @@ export default function App() {
       setTimeout(poll, 2000);
     };
     poll();
+  }
+
+  // "Check again" after polling gave up: resume with a fresh failure count.
+  function checkStatusAgain() {
+    setPollState("retrying");
+    pollStatus(jobId);
+  }
+
+  async function stopTest() {
+    setStopState("stopping");
+    try {
+      const resp = await fetch(`${BASE}/api/cancel/${jobId}`, { method: "POST" });
+      if (!resp.ok) {
+        const data = await resp.json().catch(() => null);
+        setError(describeError(data, "Could not stop the test"));
+        setStopState(null);
+      }
+      // On success pollStatus() sees "cancelled" once Locust has exited.
+    } catch (err) {
+      setError(networkError(err));
+      setStopState(null);
+    }
   }
 
   function toggleCompareId(id) {
@@ -522,7 +585,9 @@ export default function App() {
 
   // Guards against starting a second job while one is polling: two concurrent
   // pollStatus loops would both write jobStatus/jobResult and clobber each other.
-  const testRunning = jobStatus === "queued" || jobStatus === "running";
+  // Released early only when polling gave up ("lost"): the run may still be
+  // going, but the app can no longer tell.
+  const testRunning = (jobStatus === "queued" || jobStatus === "running") && pollState !== "lost";
   // The URL field was edited after the last analysis.
   const targetChanged = analyzedUrl !== null && url !== analyzedUrl;
 
@@ -551,6 +616,7 @@ export default function App() {
     completed: { color: colors.text, text: "Completed" },
     failed: { color: colors.danger, text: "Failed" },
     timeout: { color: colors.danger, text: "Timed out" },
+    cancelled: { color: colors.warning, text: "Cancelled" },
   }[jobStatus] || { color: colors.textMuted, text: jobStatus || "" };
 
   const historyColumns = "22px 48px 170px minmax(140px, 1fr) 60px 90px 90px";
@@ -644,6 +710,8 @@ export default function App() {
                     onUsersChange={setTestUsers}
                     onSpawnRateChange={setTestSpawnRate}
                     onDurationChange={setTestDuration}
+                    repeat={testRepeat}
+                    onRepeatChange={setTestRepeat}
                   />
                   <WebsiteLoadTestSection
                     sitemapRaw={sitemapRaw}
@@ -680,6 +748,7 @@ export default function App() {
                 >
                   {generating ? "Generating…" : "Generate edge cases"}
                 </button>
+                <RequestHeadersEditor rows={requestHeaders} onChange={setRequestHeaders} />
               </Section>
             )}
 
@@ -845,6 +914,8 @@ export default function App() {
                   onUsersChange={setTestUsers}
                   onSpawnRateChange={setTestSpawnRate}
                   onDurationChange={setTestDuration}
+                  repeat={testRepeat}
+                  onRepeatChange={setTestRepeat}
                 />
 
                 {targetChanged ? (
@@ -934,10 +1005,43 @@ export default function App() {
                         style={{ transform: `scaleX(${Math.min(elapsedSec / runDuration, 1)})` }}
                       />
                     </div>
-                    <div style={{ fontSize: type.meta, color: colors.textMuted, fontFamily: font.mono }}>
-                      {elapsedSec}s elapsed of about {runDuration}s. This is an estimate: ramp-up and
-                      teardown add a few seconds.
+                    <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: space.md }}>
+                      <div style={{ flex: 1, minWidth: 240, fontSize: type.meta, color: colors.textMuted, fontFamily: font.mono }}>
+                        {elapsedSec}s elapsed of about {runDuration}s. This is an estimate: ramp-up and
+                        teardown add a few seconds.
+                      </div>
+                      {testRunning && stopState === null && (
+                        <button onClick={() => setStopState("confirm")} className="btn btn-secondary btn-small">
+                          Stop test
+                        </button>
+                      )}
+                      {testRunning && stopState === "confirm" && (
+                        <span role="group" aria-label="Confirm stopping the test" style={{ display: "inline-flex", alignItems: "center", gap: space.sm }}>
+                          <span style={{ fontSize: type.meta, color: colors.text }}>Stop now? Results so far are kept.</span>
+                          <button onClick={stopTest} className="btn btn-primary btn-small">Yes, stop</button>
+                          <button onClick={() => setStopState(null)} className="btn btn-secondary btn-small">Keep running</button>
+                        </span>
+                      )}
+                      {testRunning && stopState === "stopping" && (
+                        <span style={{ fontSize: type.meta, color: colors.textMuted }}>Stopping…</span>
+                      )}
                     </div>
+                  </div>
+                )}
+
+                {pollState === "retrying" && (
+                  <p role="status" style={{ margin: `${space.sm}px 0 0`, fontSize: type.meta, color: colors.warning }}>
+                    Lost connection to the backend — retrying
+                  </p>
+                )}
+                {pollState === "lost" && (
+                  <div role="alert" style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: space.md, marginTop: space.sm }}>
+                    <span style={{ fontSize: type.body, color: colors.danger }}>
+                      Status unknown — the backend is unreachable
+                    </span>
+                    <button onClick={checkStatusAgain} className="btn btn-secondary btn-small">
+                      Check again
+                    </button>
                   </div>
                 )}
 
@@ -946,8 +1050,16 @@ export default function App() {
                     Pages tested: {websitePathsUsed.join(", ")}
                   </p>
                 )}
+                {jobResult?.header_names?.length > 0 && (
+                  <p style={{ fontSize: type.meta, color: colors.textMuted, marginBottom: 0 }}>
+                    Sent with request headers:{" "}
+                    <span style={{ fontFamily: font.mono, color: colors.text }}>{jobResult.header_names.join(", ")}</span>{" "}
+                    (values hidden)
+                  </p>
+                )}
 
-                {jobResult && (
+                {jobResult?.series_id && <SeriesSummary data={jobResult} />}
+                {jobResult && !jobResult.series_id && (
                   <JobResultSummary
                     data={jobResult}
                     showRaw={showRawJob}
@@ -955,7 +1067,7 @@ export default function App() {
                     regressionInfo={regressionInfo}
                   />
                 )}
-                {jobResult && (
+                {jobResult && !jobResult.series_id && (
                   <RunActions
                     run={jobResult}
                     regressionInfo={regressionInfo}
@@ -1041,7 +1153,7 @@ export default function App() {
                               {j.target_url}
                             </span>
                             <span>{j.users}</span>
-                            <span style={{ color: j.status === "completed" ? colors.textMuted : colors.text }}>{j.status}</span>
+                            <span style={{ color: j.status === "cancelled" ? colors.warning : j.status === "completed" ? colors.textMuted : colors.text }}>{j.status}</span>
                             <span style={{ color: colors.accent }}>{j.is_baseline ? "★ baseline" : ""}</span>
                           </label>
                         );

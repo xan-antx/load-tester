@@ -21,6 +21,8 @@ def _meaning(code):
         return "connection", "Connection failure"
     if code == 429:
         return "rate_limited", "Rate limited — too many requests"
+    if code in (401, 403):
+        return "rejected", "Rejected — not authorised (check the request headers)"
     if 400 <= code < 500:
         return "rejected", "Rejected — invalid input"
     if 500 <= code < 600:

@@ -13,6 +13,26 @@ test:
     - .venv/bin/pip install pytest
     - .venv/bin/pytest
 
+# Example performance regression gate (see scripts/README.md). It never runs
+# by itself: `when: manual` means someone must press "play" on the pipeline
+# page, `allow_failure: true` means its result cannot block build/deploy, and
+# `needs: []` means it does not wait for or hold up other jobs. It needs a
+# reachable backend and target, given as CI/CD variables GATE_API_URL and
+# GATE_TARGET_URL (optionally GATE_BASELINE_ID).
+regression-gate:
+  stage: test
+  tags:
+    - k3s
+  when: manual
+  allow_failure: true
+  needs: []
+  script:
+    - python3 -m venv .venv
+    - .venv/bin/pip install requests
+    - .venv/bin/python scripts/regression_gate.py --api "$GATE_API_URL" --url "$GATE_TARGET_URL"
+      --sample scripts/gate_sample.json --users 50 --duration 30
+      ${GATE_BASELINE_ID:+--baseline-id "$GATE_BASELINE_ID"}
+
 build:
   stage: build
   tags:

@@ -88,6 +88,10 @@ function rowValue(r, key) {
   }
 }
 
+const PROBLEM_RATE_NOTE =
+  "Problem rate counts only server errors (5xx), rate limiting (429) and connection failures. " +
+  "Unlike the failure rate, it leaves out 4xx answers, which are correct when an API rejects invalid input.";
+
 const P95_APPROX_NOTE =
   "Approximate: this run was split across several workers, and percentiles cannot be " +
   "merged exactly — the value is a request-weighted average of each worker's p95.";
@@ -250,6 +254,14 @@ export default function JobResultSummary({ data, showRaw, onToggleRaw, regressio
         </div>
       )}
 
+      {data.status === "cancelled" && (
+        <p role="status" style={{ margin: `0 0 ${space.md}px`, fontSize: type.body, color: colors.warning }}>
+          {agg
+            ? "Cancelled — partial results. The figures below cover only the part of the test that ran."
+            : "Cancelled — no results were recorded before the test was stopped."}
+        </p>
+      )}
+
       <Findings findings={findings} />
 
       {agg && (
@@ -261,6 +273,14 @@ export default function JobResultSummary({ data, showRaw, onToggleRaw, regressio
               value={`${agg.rate.toFixed(1)}%`}
               note={`${agg.failures.toLocaleString()} of ${agg.requests.toLocaleString()}`}
             />
+            {data.problem_rate != null && (
+              <KeyFigure
+                label="Problem rate"
+                value={`${data.problem_rate.toFixed(1)}%`}
+                note="5xx, 429 and connection failures"
+                title={PROBLEM_RATE_NOTE}
+              />
+            )}
             <KeyFigure label="Avg response" value={`${Math.round(Number(aggregated["Average Response Time"]))} ms`} />
             <KeyFigure
               label="p95 response"

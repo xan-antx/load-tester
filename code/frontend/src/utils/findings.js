@@ -45,7 +45,17 @@ export function deriveFindings({ failureSummary, caseRows, totalRequests, totalF
     });
   }
 
-  const rejected = ofKind("rejected");
+  // 401 / 403 mean "not authorised", not "invalid input".
+  const isAuth = (g) => g.code === 401 || g.code === 403;
+  const unauthorised = ofKind("rejected").filter(isAuth);
+  if (unauthorised.length) {
+    findings.push({
+      tone: "rejected",
+      text: `${plural(sum(unauthorised), "request")} ${sum(unauthorised) === 1 ? "was" : "were"} refused as not authorised (${codesOf(unauthorised)}); check the request headers`,
+    });
+  }
+
+  const rejected = ofKind("rejected").filter((g) => !isAuth(g));
   if (rejected.length) {
     const count = casesIn(rejected);
     findings.push({

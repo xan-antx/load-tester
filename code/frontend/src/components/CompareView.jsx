@@ -44,6 +44,9 @@ function runLabel(job, i) {
       <span style={{ color: colors.text }}>Run {i + 1}</span>
       <span style={{ marginLeft: space.sm }}>
         {job.users} users{Array.isArray(job.child_jobs) ? ", split" : ""}
+        {job.status !== "completed" && (
+          <span style={{ color: colors.warning }}>, {job.status === "cancelled" ? "cancelled — partial" : job.status}</span>
+        )}
       </span>
       <div style={{ fontSize: type.meta, color: colors.textFaint }}>{formatTime(job.created_at)}</div>
     </>
@@ -76,10 +79,19 @@ export default function CompareView({ jobs, caseComparison }) {
   );
   const anyGroup = jobs.some((j) => Array.isArray(j.child_jobs));
 
+  // Problem rate comes from the backend per run, not from the stats row.
+  const problemRates = jobs.map((j) => (j.problem_rate == null ? null : j.problem_rate));
+
   const metrics = [
     { label: "Requests", get: (t) => num(t, "Request Count"), fmt: (v) => Math.round(v), goodWhenUp: true },
     { label: "Failures", get: (t) => num(t, "Failure Count"), fmt: (v) => Math.round(v), goodWhenUp: false },
     { label: "Failure rate %", get: (t) => failureRate(t), fmt: (v) => v.toFixed(1), goodWhenUp: false },
+    {
+      label: "Problem rate % (5xx, 429, connection)",
+      get: (t, i) => problemRates[i],
+      fmt: (v) => v.toFixed(1),
+      goodWhenUp: false,
+    },
     { label: "Avg response ms", get: (t) => num(t, "Average Response Time"), fmt: (v) => Math.round(v), goodWhenUp: false },
     { label: anyGroup ? "p95 response ms (≈ for split runs)" : "p95 response ms", get: (t) => num(t, "95%"), fmt: (v) => Math.round(v), goodWhenUp: false },
     { label: "Requests / s", get: (t) => num(t, "Requests/s"), fmt: (v) => v.toFixed(2), goodWhenUp: true },
@@ -136,12 +148,12 @@ export default function CompareView({ jobs, caseComparison }) {
               ))}
             </tr>
             {metrics.map((m) => {
-              const base = m.get(totals[0]);
+              const base = m.get(totals[0], 0);
               return (
                 <tr key={m.label}>
                   <td style={{ ...tdStyle, color: colors.textMuted }}>{m.label}</td>
                   {totals.map((t, i) => {
-                    const v = m.get(t);
+                    const v = m.get(t, i);
                     return (
                       <td key={i} style={tdStyle}>
                         {v != null ? m.fmt(v) : "—"}

@@ -23,7 +23,17 @@ an asynchronous Locust-based load test, and compare past runs.
   changed with load
 - Baseline runs with automatic regression flags, and a downloadable
   Markdown report
-- A local mock login API for repeatable, offline testing
+- A local mock login API for repeatable, offline testing (optionally
+  requiring a bearer token)
+- Problem rate (5xx, 429 and connection failures only) next to the failure
+  rate, so correct 4xx rejections don't look like problems
+- Stop a running test (single, split or series), keeping partial results
+- Survives a lost backend connection while a test runs, with a retry banner
+- Request headers for authenticated APIs (e.g. a bearer token); values are
+  never stored
+- A command-line regression gate for CI (exit code 0 / 1 / 2), with a manual
+  GitLab job
+- Repeated runs (1–5) with mean ± standard deviation across repeats
 
 Each feature is explained in plain English in
 [docs/features.md](docs/features.md).

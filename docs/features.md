@@ -27,6 +27,12 @@ questions a teacher might ask (with short answers).
 - **Percentile (p95)** — sort all response times from fastest to slowest; the
   p95 is the time that 95% of requests beat. It shows the slow tail that an
   average hides.
+- **Request header** — a named extra line sent with a request, such as
+  `Authorization: Bearer <token>`, which proves who is calling.
+- **Exit code** — the number a command-line program returns when it ends; 0
+  means success. CI pipelines pass or fail a step on it.
+- **Standard deviation (SD)** — how far values typically sit from their mean.
+  "12.2 ± 0.3" means the repeats were very close to each other.
 
 ---
 
@@ -508,3 +514,251 @@ needed". Narrow the window: the rail becomes a bar at the top.
 - *Is it accessible?* — Every input has a label, everything works with the
   keyboard, focus is always visible, and animations are switched off for
   people who ask their system for reduced motion.
+
+---
+
+## 17. Problem rate
+
+**What it does.** A second headline number next to the failure rate:
+"Problem rate" = (server errors 5xx + rate limiting 429 + connection failures)
+÷ all requests. It also appears in the comparison table and the report.
+
+**Why it exists.** Our evaluation listed this limitation: the failure rate
+counts *every* non-2xx answer as a failure, including the 400s a correct API
+*should* return for invalid edge cases. A well-behaved API therefore showed an
+alarming "89% failure rate". The problem rate counts only answers that point
+at a real problem.
+
+**How it works.** The backend already groups failures by type (feature 2).
+A small function adds up the server-error, rate-limited and connection groups
+and divides by the total request count from the stats file. It is added to
+every status and compare response as `problem_count` and `problem_rate`; the
+failure rate is unchanged.
+
+**Files.** `code/analysis/problem_rate.py`, `code/app.py`
+(`_with_failure_summary`), `JobResultSummary.jsx`, `CompareView.jsx`,
+`utils/report.js`, `code/tests/test_problem_rate.py`.
+
+**Demo.** Run the mock target with 15 users for 15 s: Failure rate ≈ 88%,
+Problem rate ≈ 10% (only the 500s). Hover the Problem rate for the
+explanation.
+
+**Teacher might ask.**
+- *Why not just change the failure rate?* — Other features (comparison,
+  baseline regressions, reports) rely on it and it is the standard Locust
+  number; adding a second number is safer and shows both views.
+- *Why count 429 as a problem?* — The request itself was fine; the server
+  refused it because of load, which is exactly what a load test looks for.
+
+---
+
+## 18. Stop a running test
+
+**What it does.** A "Stop test" button beside the progress bar, with a
+confirm step ("Stop now? Results so far are kept."). The run ends as
+**cancelled**; if Locust had already written results, they are kept and
+labelled "Cancelled — partial results".
+
+**Why it exists.** Listed limitation (UX review U13): a mistaken 300-second
+run could not be stopped and blocked every other test.
+
+**How it works.** The backend now starts Locust with `subprocess.Popen`
+(same command, output capture and timeout as before) and keeps each running
+process in a dictionary by job id. `POST /api/cancel/<id>` terminates that
+process — or every child process of a split run, or the current repeat of a
+series — and the runner then stores status `cancelled` with whatever CSV files
+Locust had written (it rewrites them every few seconds). In queue (SQS) mode it
+returns 409, because the worker runs on another machine.
+
+**Files.** `code/load_test_runner.py` (`cancel_run`, `_run_locust`),
+`code/job_store.py`, `code/app.py`, `App.jsx`, `JobResultSummary.jsx`,
+`CompareView.jsx`, `utils/report.js`, `code/tests/test_cancel.py`.
+
+**Demo.** Start a 30 s run, click "Stop test" → "Yes, stop" after 10 s. Within
+a second the status is "Cancelled" and about a third of the requests are
+shown as partial results. The run appears as "cancelled" in the history.
+
+**Teacher might ask.**
+- *Why `Popen` instead of `subprocess.run`?* — `run` waits until the process
+  ends and never gives us a handle to it; `Popen` returns the process object,
+  so another request can call `terminate()` on it.
+- *What happens to a split run?* — Every child is stopped; the group becomes
+  "cancelled" once all children have stopped, and their partial results are
+  merged exactly like a finished split run.
+
+---
+
+## 19. Lost connection while polling
+
+**What it does.** If the backend stops answering during a run, a banner says
+"Lost connection to the backend — retrying" and the app keeps checking every
+2 seconds. When the backend answers again the banner disappears. After about
+30 seconds (15 failed checks) it shows "Status unknown — the backend is
+unreachable" with a "Check again" button.
+
+**Why it exists.** Listed limitation (UX review U17): one failed status check
+silently stopped the polling, so the page said "Running" forever.
+
+**How it works.** Error handling was added *inside* `pollStatus()` only: a
+`try/catch` around the status request, a counter of consecutive failures, and
+a small `pollState` value (`retrying` or `lost`) that drives the banner. The
+2-second interval and the completion check are unchanged. The double-start
+guard is released only in the final "lost" state.
+
+**Files.** `code/frontend/src/App.jsx`.
+
+**Demo.** Start a 30 s run and stop the backend (Ctrl+C): the retrying banner
+appears; after ~30 s, "Status unknown" and "Check again". (Restarting the
+backend loses that run, because runs live in the backend process.)
+
+**Teacher might ask.**
+- *Why 15 attempts?* — 15 × 2 s ≈ 30 s: long enough to survive a backend
+  restart or a short network blip, short enough not to leave the user waiting.
+- *Why release the guard only at the end?* — While retrying, the run may still
+  be going; starting a second one would make two polling loops overwrite each
+  other.
+
+---
+
+## 20. Request headers (authenticated APIs)
+
+**What it does.** Step 2 has an optional "Request headers" editor (name/value
+rows, Add / Remove), e.g. `Authorization: Bearer <token>`. The headers are
+sent with the Analyze probe and with every request Locust makes, for API and
+website tests, single and split runs.
+
+**Why it exists.** Most real APIs need a token; without headers every request
+got 401 and the tool could only test public endpoints.
+
+**How it works.** The browser sends the headers with the start request. The
+backend checks them (valid names, single-line values) and hands the values to
+Locust **only through an environment variable**, which both locustfiles read.
+Values are never written to the database, a file or a log, and never sent
+back: only the header *names* are stored with the run, and anything Locust
+prints is passed through a redaction step. Values are typed into password
+fields, so they are masked on screen. In SQS mode headers are refused, since
+the queue would store them. The mock target can require a token with
+`MOCK_REQUIRE_TOKEN=demo-token`.
+
+**Files.** `code/analysis/request_headers.py`, `code/analysis/sanity_check.py`,
+`code/app.py`, `code/load_test_runner.py`, `code/job_store.py`
+(`header_names` column), both files in `code/locust_tests/`,
+`code/scripts/mock_target.py`, `code/scripts/README.md`,
+`components/RequestHeadersEditor.jsx`, `App.jsx`, `utils/report.js`,
+`code/analysis/failure_summary.py` and `utils/findings.js` (401/403 explained
+as "not authorised"), `code/tests/test_request_headers.py`.
+
+**Demo.** Start the mock with `MOCK_REQUIRE_TOKEN=demo-token`. Run 15 users
+for 10 s: every request is a 401 ("refused as not authorised; check the
+request headers"). Add `Authorization` = `Bearer demo-token` in step 2 and run
+again: normal results, and "Sent with request headers: Authorization (values
+hidden)".
+
+**Teacher might ask.**
+- *How do you know the token is not stored?* — The tests start runs with a
+  secret header and then search the whole database dump, every result file and
+  every API response for it; a real run was checked the same way, including
+  the server logs.
+- *Why an environment variable and not a file, like the cases?* — A file
+  would put the secret on disk and would have to be deleted reliably even when
+  a run crashes; an environment variable only exists in the Locust process's
+  memory and disappears with it.
+
+---
+
+## 21. CI regression gate
+
+**What it does.** `scripts/regression_gate.py` is a command-line check for a
+CI pipeline: it starts a load test through the normal API, waits for it,
+compares it with the baseline and exits **0** (no regressions), **1**
+(regressions) or **2** (error). An example GitLab job runs it manually.
+
+**Why it exists.** Regression detection (feature 11) only helped someone who
+opened the app. A pipeline needs a yes/no answer it can act on automatically.
+
+**How it works.** The script generates and confirms all edge cases from a
+sample file, starts the run, polls the status, then calls
+`/api/regressions/<run>` (optionally `?baseline_id=<id>`, a new additive
+parameter) and prints a short summary. The decision is a pure function of
+that response, so it is tested without a network. The CI job is
+`when: manual` and `allow_failure: true`, so it never runs or blocks anything
+by itself.
+
+**Files.** `code/scripts/regression_gate.py`, `code/scripts/gate_sample.json`,
+`code/scripts/README.md`, `code/.gitlab-ci.yml`, `code/app.py`
+(`baseline_id` parameter), `code/tests/test_regression_gate.py`.
+
+**Demo.** Mark a 15-user run as baseline in the app, then in `code/`:
+`python scripts/regression_gate.py --api http://localhost:5000 --url
+http://127.0.0.1:8000/api/login --sample scripts/gate_sample.json --users 150
+--duration 15` → "FAIL: 3 case(s) got worse…", and `echo $?` (or
+`$LASTEXITCODE` in PowerShell) prints 1. With `--users 15` it prints PASS and
+exits 0.
+
+**Teacher might ask.**
+- *Why exit codes?* — Every CI system treats exit code 0 as success and
+  anything else as failure; that is the universal way for a script to pass or
+  fail a pipeline step.
+- *Why is the CI job manual?* — A load test needs a running backend and a
+  target we own, and it puts real load on it; it should never fire on every
+  commit without someone deciding to.
+
+---
+
+## 22. Repeated runs (series)
+
+**What it does.** "Repeat" (1–5) in the load settings runs the same test that
+many times back to back. When they finish, a series summary shows, for the
+whole run, the mean ± standard deviation of throughput, p95 and problem rate,
+and for each case its mean failure rate and min–max across repeats.
+
+**Why it exists.** One load test is one sample: run it again and the numbers
+move. Without repeats we could not tell whether a difference between two runs
+was real or just noise.
+
+**How it works.** The backend stores a *series* (its settings and the ids of
+its runs) and a background thread starts one ordinary run (single or split),
+waits for it to finish, and starts the next. Each repeat is a normal run, so
+history, comparison and baselines work on it unchanged. The series id is
+polled through the usual status endpoint; a pure function computes the
+statistics. Stop cancels the current repeat and starts no more; a series
+counts as one running test for the double-start guard.
+
+**Files.** `code/analysis/series_stats.py`, `code/load_test_runner.py`
+(`start_series`, `_run_series`), `code/job_store.py` (`series` table),
+`code/app.py`, `LoadTestConfig.jsx`, `components/SeriesSummary.jsx`,
+`App.jsx`, `code/tests/test_series_stats.py`, `code/tests/test_series.py`.
+
+**Demo.** Mock target, 15 users, 10 s, Repeat 3 → after ~45 s: throughput
+≈ 12.2 ± 0.3 req/s, p95 ≈ 153 ± 6 ms, and a per-case table where the
+`expiresInMins` cases show their min–max spread.
+
+**Teacher might ask.**
+- *Why the sample standard deviation (n − 1)?* — Three repeats are a sample
+  of all the runs we could have done; dividing by n − 1 corrects the
+  tendency of a small sample to underestimate the spread.
+- *Why one after another instead of in parallel?* — Parallel repeats would
+  load the server together and change the result; the point is to repeat the
+  *same* conditions.
+
+---
+
+## Job states
+
+Every run (a single job, a split group, or a repeat series) moves through
+these states. The last four are **terminal**: the run never changes again, and
+the browser stops polling.
+
+```
+queued ──► running ──► completed
+   │          ├──────► failed      (Locust could not run, or an error)
+   │          ├──────► timeout     (ran longer than duration + 60 s)
+   └──────────┴──────► cancelled   (Stop test; partial results kept if any)
+```
+
+- A **split group** is `cancelled` once every child has stopped and at least
+  one was cancelled; `failed` and `timeout` in any child take priority, and it
+  is `running` while any child still runs.
+- A **series** is `completed` only if every repeat completed; a repeat that
+  failed or timed out makes it `failed`; Stop makes it `cancelled`.
+- Only `completed` runs can become the baseline.

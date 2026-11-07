@@ -1,3 +1,4 @@
+import json
 from urllib.parse import urlparse
 from flask import Flask, request, jsonify
 from flask_cors import CORS
@@ -8,7 +9,12 @@ from analysis.failure_summary import summarize_failures
 from analysis.case_comparison import compare_cases
 from analysis.custom_cases import classify_custom_case
 from analysis.regressions import detect_regressions
+from analysis.problem_rate import problem_rate
+from analysis.request_headers import clean_headers, header_names
+from analysis.series_stats import summarize_series
+from job_store import get_series
 from load_test_runner import start_load_test, start_website_load_test, get_job_status, get_group_status
+import load_test_runner
 from job_store import init_db, list_jobs, list_job_groups, set_baseline, get_baseline_id
 
 app = Flask(__name__)
@@ -18,6 +24,7 @@ init_db()
 MAX_USERS = 1000
 MAX_DURATION_SECONDS = 300
 MAX_SPAWN_RATE = 20
+MAX_REPEAT = 5
 
 
 @app.errorhandler(Exception)
@@ -58,8 +65,12 @@ def analyze_endpoint():
     url = (data.get("url") or "").strip()
     if not url:
         return jsonify({"error": "url is required"}), 400
+    # Optional request headers (e.g. Authorization) for the probe.
+    headers, err = clean_headers(data.get("headers"))
+    if err:
+        return jsonify({"error": err}), 400
 
-    sanity = sanity_check(url)
+    sanity = sanity_check(url, headers=headers)
     if not sanity["valid_format"] or not sanity.get("reachable"):
         return jsonify({"sanity": sanity}), 400
 
@@ -164,6 +175,40 @@ def _validate_load_test_params(data):
     return (users, spawn_rate, duration_seconds), None
 
 
+def _repeat_count(data):
+    """Optional "repeat" (1-5, default 1), or (None, (error, status))."""
+    try:
+        repeat = int(data.get("repeat", 1))
+    except (TypeError, ValueError):
+        return None, ("repeat must be an integer", 400)
+    if not 1 <= repeat <= MAX_REPEAT:
+        return None, (f"repeat must be between 1 and {MAX_REPEAT}", 400)
+    return repeat, None
+
+
+def _series_started(job_type, host, users, spawn_rate, duration_seconds, repeat, headers, start_one, extra):
+    """Starts a repeat series and builds the 202 response. The series id is
+    returned as job_id too, so the browser polls it like any other run."""
+    series_id = load_test_runner.start_series(job_type, host, users, spawn_rate, duration_seconds, repeat,
+                                              start_one, header_names=header_names(headers))
+    body = {"job_id": series_id, "series_id": series_id, "status": "started",
+            "is_group": users > load_test_runner.SPLIT_THRESHOLD, "is_series": True, "repeat": repeat}
+    body.update(extra)
+    return jsonify(body), 202
+
+
+def _request_headers(data):
+    """Validated optional headers for a load test, or (None, (error, status))."""
+    headers, err = clean_headers(data.get("headers"))
+    if err:
+        return None, (err, 400)
+    if headers and load_test_runner.USE_SQS:
+        # The queue message would carry the values to another machine and
+        # keep them until processed; refuse rather than store secrets there.
+        return None, ("Request headers are not supported in queue (SQS) mode.", 409)
+    return headers, None
+
+
 @app.route("/api/start-load-test", methods=["POST"])
 def start_load_test_endpoint():
     data = request.get_json(silent=True) or {}
@@ -179,6 +224,12 @@ def start_load_test_endpoint():
     if err:
         return jsonify({"error": err[0]}), err[1]
     users, spawn_rate, duration_seconds = params
+    headers, err = _request_headers(data)
+    if err:
+        return jsonify({"error": err[0]}), err[1]
+    repeat, err = _repeat_count(data)
+    if err:
+        return jsonify({"error": err[0]}), err[1]
 
     parsed = urlparse(target_url)
     if parsed.scheme not in ("http", "https") or not parsed.netloc:
@@ -187,7 +238,16 @@ def start_load_test_endpoint():
     host = f"{parsed.scheme}://{parsed.netloc}"
     path = parsed.path or "/"
 
-    job_id, is_group = start_load_test(host, path, confirmed_cases, users, spawn_rate, duration_seconds)
+    if repeat > 1:
+        return _series_started(
+            "api", host, users, spawn_rate, duration_seconds, repeat, headers,
+            lambda: start_load_test(host, path, confirmed_cases, users, spawn_rate, duration_seconds,
+                                    headers=headers),
+            {},
+        )
+
+    job_id, is_group = start_load_test(host, path, confirmed_cases, users, spawn_rate, duration_seconds,
+                                       headers=headers)
     return jsonify({"job_id": job_id, "status": "started", "is_group": is_group}), 202
 
 
@@ -204,6 +264,12 @@ def start_website_load_test_endpoint():
     if err:
         return jsonify({"error": err[0]}), err[1]
     users, spawn_rate, duration_seconds = params
+    headers, err = _request_headers(data)
+    if err:
+        return jsonify({"error": err[0]}), err[1]
+    repeat, err = _repeat_count(data)
+    if err:
+        return jsonify({"error": err[0]}), err[1]
 
     parsed = urlparse(target_url)
     if parsed.scheme not in ("http", "https") or not parsed.netloc:
@@ -217,7 +283,15 @@ def start_website_load_test_endpoint():
     if not paths:
         paths = [parsed.path or "/"]
 
-    job_id, is_group = start_website_load_test(host, paths, users, spawn_rate, duration_seconds)
+    if repeat > 1:
+        return _series_started(
+            "website", host, users, spawn_rate, duration_seconds, repeat, headers,
+            lambda: start_website_load_test(host, paths, users, spawn_rate, duration_seconds, headers=headers),
+            {"paths_used": paths},
+        )
+
+    job_id, is_group = start_website_load_test(host, paths, users, spawn_rate, duration_seconds,
+                                               headers=headers)
     return jsonify({"job_id": job_id, "status": "started", "is_group": is_group, "paths_used": paths}), 202
 
 
@@ -227,11 +301,45 @@ def _with_failure_summary(run):
     run["failure_summary"] = summarize_failures(
         run.get("aggregated_failures_csv") or run.get("failures_csv")
     )
+    # Stored as a JSON list of names; values are never stored.
+    if isinstance(run.get("header_names"), str):
+        run["header_names"] = json.loads(run["header_names"])
+    # problem_count / problem_rate: 5xx + 429 + connection failures only.
+    run.update(problem_rate(run["failure_summary"], _stats_of(run)))
     return run
+
+
+def _series_status(series):
+    """A repeat series as the status endpoint returns it: its own status,
+    each repeat's id and status, and, once it has stopped, the statistics
+    across the repeats that completed."""
+    runs = []
+    finished = []
+    for run_id in series["run_ids"]:
+        run = _find_run(run_id)
+        if run is None:
+            continue
+        run = _with_failure_summary(run)
+        runs.append({"id": run_id, "status": run["status"], "is_group": "child_jobs" in run,
+                     "problem_rate": run.get("problem_rate")})
+        if run["status"] == "completed":
+            finished.append({"stats_csv": _stats_of(run), "problem_rate": run.get("problem_rate")})
+    series["runs"] = runs
+    series["series_summary"] = (
+        summarize_series(finished)
+        if series["status"] in load_test_runner.TERMINAL_STATUSES and finished
+        else None
+    )
+    return series
 
 
 @app.route("/api/load-test-status/<job_id>", methods=["GET"])
 def load_test_status_endpoint(job_id):
+    # A repeat series is polled through the same endpoint as a single run.
+    series = get_series(job_id)
+    if series is not None:
+        return jsonify(_series_status(series)), 200
+
     # A split job's id is a group_id, not a single job_id — check that first.
     group_status = get_group_status(job_id)
     if group_status is not None:
@@ -241,6 +349,19 @@ def load_test_status_endpoint(job_id):
     if status is None:
         return jsonify({"error": "job_id not found"}), 404
     return jsonify(_with_failure_summary(status)), 200
+
+
+@app.route("/api/cancel/<run_id>", methods=["POST"])
+def cancel_endpoint(run_id):
+    """Stops a running job, a whole split group, or a repeat series. The
+    status turns "cancelled" once the Locust process has exited."""
+    if load_test_runner.USE_SQS:
+        return jsonify({"error": "Stopping a test is not available in queue (SQS) mode: the "
+                                 "worker runs on another machine, so this server cannot "
+                                 "reach its Locust process."}), 409
+    if not load_test_runner.cancel_run(run_id):
+        return jsonify({"error": f"run '{run_id}' not found"}), 404
+    return jsonify({"id": run_id, "status": "cancelling"}), 202
 
 
 @app.route("/api/jobs", methods=["GET"])
@@ -330,7 +451,14 @@ def regressions_endpoint(run_id):
     if run is None:
         return jsonify({"error": f"run '{run_id}' not found"}), 404
 
-    baseline_id = get_baseline_id(run["target_url"])
+    # Optional ?baseline_id=<id> compares with that run instead of the
+    # target's stored baseline (used by scripts/regression_gate.py).
+    baseline_id = request.args.get("baseline_id")
+    if baseline_id:
+        if _find_run(baseline_id) is None:
+            return jsonify({"error": f"baseline run '{baseline_id}' not found"}), 404
+    else:
+        baseline_id = get_baseline_id(run["target_url"])
     response = {
         "target_url": run["target_url"],
         "baseline_id": baseline_id,

@@ -89,14 +89,28 @@ def init_db():
             conn.execute("ALTER TABLE job_groups ADD COLUMN is_baseline INTEGER DEFAULT 0")
         except sqlite3.OperationalError:
             pass
+        _init_series_table(conn)
+        # JSON list of request header NAMES sent with the run. Values are
+        # never stored anywhere.
+        try:
+            conn.execute("ALTER TABLE jobs ADD COLUMN header_names TEXT")
+        except sqlite3.OperationalError:
+            pass
+        try:
+            conn.execute("ALTER TABLE job_groups ADD COLUMN header_names TEXT")
+        except sqlite3.OperationalError:
+            pass
 
 
-def create_job(job_id, target_url, users, spawn_rate, duration_seconds, group_id=None):
+def create_job(job_id, target_url, users, spawn_rate, duration_seconds, group_id=None, header_names=None):
+    """header_names: list of request header names (never their values)."""
     with _lock, _get_conn() as conn:
         conn.execute(
-            """INSERT INTO jobs (job_id, target_url, users, spawn_rate, duration_seconds, status, group_id)
-               VALUES (?, ?, ?, ?, ?, 'queued', ?)""",
-            (job_id, target_url, users, spawn_rate, duration_seconds, group_id),
+            """INSERT INTO jobs (job_id, target_url, users, spawn_rate, duration_seconds, status, group_id,
+                                 header_names)
+               VALUES (?, ?, ?, ?, ?, 'queued', ?, ?)""",
+            (job_id, target_url, users, spawn_rate, duration_seconds, group_id,
+             json.dumps(header_names) if header_names else None),
         )
 
 
@@ -106,7 +120,7 @@ def update_job(job_id, **fields):
     with _lock, _get_conn() as conn:
         set_clause = ", ".join(f"{k} = ?" for k in fields)
         values = list(fields.values()) + [job_id]
-        if "status" in fields and fields["status"] in ("completed", "failed", "timeout"):
+        if "status" in fields and fields["status"] in ("completed", "failed", "timeout", "cancelled"):
             set_clause += ", completed_at = CURRENT_TIMESTAMP"
         conn.execute(f"UPDATE jobs SET {set_clause} WHERE job_id = ?", values)
 
@@ -127,13 +141,16 @@ def list_jobs(limit=50):
         return [dict(r) for r in rows]
 
 
-def create_job_group(group_id, target_url, job_type, users, spawn_rate, duration_seconds, child_count):
+def create_job_group(group_id, target_url, job_type, users, spawn_rate, duration_seconds, child_count,
+                     header_names=None):
     with _lock, _get_conn() as conn:
         conn.execute(
             """INSERT INTO job_groups
-               (group_id, target_url, job_type, users, spawn_rate, duration_seconds, child_count, status)
-               VALUES (?, ?, ?, ?, ?, ?, ?, 'queued')""",
-            (group_id, target_url, job_type, users, spawn_rate, duration_seconds, child_count),
+               (group_id, target_url, job_type, users, spawn_rate, duration_seconds, child_count, status,
+                header_names)
+               VALUES (?, ?, ?, ?, ?, ?, ?, 'queued', ?)""",
+            (group_id, target_url, job_type, users, spawn_rate, duration_seconds, child_count,
+             json.dumps(header_names) if header_names else None),
         )
 
 
@@ -143,7 +160,7 @@ def update_job_group(group_id, **fields):
     with _lock, _get_conn() as conn:
         set_clause = ", ".join(f"{k} = ?" for k in fields)
         values = list(fields.values()) + [group_id]
-        if "status" in fields and fields["status"] in ("completed", "failed"):
+        if "status" in fields and fields["status"] in ("completed", "failed", "cancelled"):
             set_clause += ", completed_at = CURRENT_TIMESTAMP"
         conn.execute(f"UPDATE job_groups SET {set_clause} WHERE group_id = ?", values)
 
@@ -191,3 +208,62 @@ def get_baseline_id(target_url):
             (target_url, target_url),
         ).fetchone()
         return row["id"] if row else None
+
+# ---- Repeat series ------------------------------------------------------------
+# A series runs the same configuration several times, one after another. Each
+# repeat is an ordinary job or split group; the series only records their ids.
+
+def _init_series_table(conn):
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS series (
+            series_id TEXT PRIMARY KEY,
+            target_url TEXT,
+            job_type TEXT,
+            users INTEGER,
+            spawn_rate INTEGER,
+            duration_seconds INTEGER,
+            repeat_count INTEGER,
+            run_ids TEXT,
+            status TEXT,
+            error TEXT,
+            header_names TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            completed_at TEXT
+        )
+    """)
+
+
+def create_series(series_id, target_url, job_type, users, spawn_rate, duration_seconds, repeat_count,
+                  header_names=None):
+    with _lock, _get_conn() as conn:
+        conn.execute(
+            """INSERT INTO series (series_id, target_url, job_type, users, spawn_rate, duration_seconds,
+                                   repeat_count, run_ids, status, header_names)
+               VALUES (?, ?, ?, ?, ?, ?, ?, '[]', 'queued', ?)""",
+            (series_id, target_url, job_type, users, spawn_rate, duration_seconds, repeat_count,
+             json.dumps(header_names) if header_names else None),
+        )
+
+
+def update_series(series_id, **fields):
+    if not fields:
+        return
+    with _lock, _get_conn() as conn:
+        set_clause = ", ".join(f"{k} = ?" for k in fields)
+        values = list(fields.values()) + [series_id]
+        if fields.get("status") in ("completed", "failed", "cancelled"):
+            set_clause += ", completed_at = CURRENT_TIMESTAMP"
+        conn.execute(f"UPDATE series SET {set_clause} WHERE series_id = ?", values)
+
+
+def get_series(series_id):
+    """The series row with run_ids (and header_names) decoded, or None."""
+    with _get_conn() as conn:
+        row = conn.execute("SELECT * FROM series WHERE series_id = ?", (series_id,)).fetchone()
+    if not row:
+        return None
+    series = dict(row)
+    series["run_ids"] = json.loads(series["run_ids"] or "[]")
+    if series.get("header_names"):
+        series["header_names"] = json.loads(series["header_names"])
+    return series

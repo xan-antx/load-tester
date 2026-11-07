@@ -5,6 +5,9 @@ from locust import HttpUser, task, between
 
 CASES_FILE = os.environ["LOCUST_CASES_FILE"]
 TARGET_PATH = os.environ.get("LOCUST_TARGET_PATH", "/")
+# Optional request headers (e.g. Authorization), passed only via the
+# environment so their values are never written to disk.
+HEADERS = json.loads(os.environ.get("LOCUST_HEADERS") or "{}")
 
 with open(CASES_FILE) as f:
     CASES = json.load(f)
@@ -16,4 +19,4 @@ class ApiEdgeCaseUser(HttpUser):
     @task
     def send_edge_case(self):
         case = random.choice(CASES)
-        self.client.post(TARGET_PATH, json=case["payload"], name=case["label"])
+        self.client.post(TARGET_PATH, json=case["payload"], name=case["label"], headers=HEADERS)

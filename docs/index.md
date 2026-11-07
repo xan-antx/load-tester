@@ -27,7 +27,14 @@ past runs side by side.
 - Timeline charts (users, throughput, response time per second)
 - Comparison of 2–4 runs with a per-case "Changed with load" table
 - Baseline runs with regression flags, and a downloadable Markdown report
-- A local mock login API for repeatable offline testing
+- A local mock login API for repeatable offline testing (optionally
+  requiring a bearer token)
+- Problem rate (5xx, 429, connection failures) next to the failure rate
+- Stop a running test, keeping partial results
+- Retry banner when the backend connection is lost during a run
+- Request headers for authenticated APIs; values are never stored
+- A CI regression gate script (exit code 0 / 1 / 2) with a manual GitLab job
+- Repeated runs (1–5) with mean ± standard deviation across repeats
 
 Every feature is explained in plain English, with demo steps, in
 [Features explained](features.md).
@@ -60,18 +67,19 @@ fallback) are load-tested directly.
 |--------|------|-------------|
 | GET | `/health`, `/api/health` | Health check — returns `{"status": "ok"}` |
 | POST | `/api/sanity-check` | Validate URL format and reachability (`{url}`) |
-| POST | `/api/analyze` | Sanity-check + classify a target as API/website; includes sitemap info for websites (`{url}`) |
+| POST | `/api/analyze` | Sanity-check + classify a target as API/website; includes sitemap info for websites (`{url, headers?}`) |
 | POST | `/api/generate-edge-cases` | Generate edge-case payloads from a sample JSON body (`{sample_input}`) |
 | POST | `/api/validate-custom-case` | Check a user-written case against the sample (`{sample_input, label, payload}`) |
 | POST | `/api/confirm-selection` | Confirm a subset of generated cases, plus optional custom cases (`{sample_input, selected_labels, custom_cases?}`) |
-| POST | `/api/start-load-test` | Start an async API load test (`{url, confirmed_cases, users, spawn_rate, duration_seconds}`) — returns `job_id` |
-| POST | `/api/start-website-load-test` | Start an async website load test (`{url, sitemap_raw?, users, spawn_rate, duration_seconds}`) — returns `job_id` and `paths_used` |
-| GET | `/api/load-test-status/<id>` | Poll a job (or split-job group) — completed runs include the Locust stats, failures and per-second history CSVs, plus `failure_summary` |
+| POST | `/api/start-load-test` | Start an async API load test (`{url, confirmed_cases, users, spawn_rate, duration_seconds, headers?, repeat?}`) — returns `job_id`; with `repeat` > 1 it is a series id |
+| POST | `/api/start-website-load-test` | Start an async website load test (`{url, sitemap_raw?, users, spawn_rate, duration_seconds, headers?, repeat?}`) — returns `job_id` and `paths_used` |
+| GET | `/api/load-test-status/<id>` | Poll a job, split-job group or repeat series — completed runs include the Locust stats, failures and per-second history CSVs, plus `failure_summary`, `problem_rate` and `header_names`; a series includes `runs` and `series_summary` |
+| POST | `/api/cancel/<id>` | Stop a running job, group or series (202; 409 in SQS mode) |
 | GET | `/api/jobs` | List past runs: `{jobs, job_groups}` |
 | POST | `/api/compare-jobs` | Compare 2–4 runs (`{job_ids}` → `{jobs, case_comparison}`); the original `{job_id_a, job_id_b}` form still works |
 | POST | `/api/baseline` | Mark a completed run as the baseline for its target (`{id}`) |
 | GET | `/api/baseline?target_url=…` | Get the baseline run id for a target |
-| GET | `/api/regressions/<id>` | Compare a run with its target's baseline |
+| GET | `/api/regressions/<id>` | Compare a run with its target's baseline (or with `?baseline_id=<id>`) |
 
 Limits: 1–1000 users, spawn rate 1–20/s, duration 1–300 s.
 

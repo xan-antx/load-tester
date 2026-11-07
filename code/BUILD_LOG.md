@@ -288,3 +288,293 @@ run instructions (mock target) updated; `code/README.md` layout updated.
 - The docs site has no nav file (`summary.md`), so mkdocs lists every page in
   `docs/` automatically — `features.md` will appear; it is also linked from
   `docs/index.md`.
+
+---
+
+# Build log — extension tiers 1–4 (problem rate, stop, auth headers, CI gate, repeats)
+
+Same rules as before: no git commands, no new packages, additive backend
+changes only. **browser** = seen in the running UI (dev server on 5173);
+**API/script** = checked by calling the backend from a Python script.
+
+## Tier 1 — small fixes to known limitations
+
+**Built**
+- 1.1 Problem rate. `analysis/problem_rate.py` → `problem_rate(failure_summary,
+  stats_csv)` = (5xx + 429 + connection failures) / total requests, one
+  decimal. Added in `app._with_failure_summary()` so every status response
+  (single and group) and both compare forms carry `problem_count` and
+  `problem_rate` (additive). Frontend: "Problem rate" key figure after
+  Failure rate with a tooltip explaining the difference; a "Problem rate %"
+  row in the comparison table; a row plus a one-line explanation in the
+  Markdown report. Failure rate is unchanged everywhere.
+- 1.2 Stop. `load_test_runner._run_locust()` now uses `subprocess.Popen` +
+  `communicate(timeout=duration+60)` with the same command, output capture
+  and timeout handling (on timeout: kill, collect output, status "timeout",
+  exactly what `subprocess.run` did). Processes are tracked in `_processes`.
+  `cancel_run(id)` handles a single job or every child of a group: a running
+  job's process is terminated, a queued job is marked cancelled straight
+  away (and never starts Locust). After the process exits, the runner stores
+  status `cancelled` with whatever CSVs Locust had already written (Locust
+  rewrites them every few seconds), so partial results survive. Group status:
+  `cancelled` once every child has stopped and at least one was cancelled;
+  partial child results are merged like a completed group.
+  `POST /api/cancel/<id>` → 202 `{status: "cancelling"}`, 404 unknown id,
+  409 with an explanation when `USE_SQS=true`. `job_store` sets
+  `completed_at` for cancelled jobs and groups.
+  Frontend: "Stop test" next to the progress text while queued/running →
+  "Stop now? Results so far are kept. [Yes, stop] [Keep running]" →
+  "Stopping…". "cancelled" is terminal in `pollStatus()`, shown as
+  "Cancelled" (amber) in the run panel and history, "cancelled — partial"
+  in comparison headers, "cancelled — partial results" in the report, and
+  the result says "Cancelled — partial results…" or "…no results were
+  recorded…".
+- 1.3 Lost connection. Inside `pollStatus()` only: the fetch is wrapped in
+  try/catch. A failed poll shows "Lost connection to the backend —
+  retrying" and retries after the same 2 s; a successful poll clears it.
+  After 15 failures in a row polling stops and shows "Status unknown — the
+  backend is unreachable" with "Check again" (resumes polling). `testRunning`
+  is released only in that final state. The interval and the completion
+  check are otherwise unchanged (the completion list gained "cancelled", as
+  1.2 requires).
+
+**Tests**: `tests/test_problem_rate.py` (7), `tests/test_cancel.py` (10:
+fake Popen — cancel keeps partial CSV, no CSV → no results, uncancelled run
+still completes, timeout still "timeout", queued job never starts, group
+cancel stops all children and merges partials, group stays "running" until
+every child stops, endpoint 202/404, SQS → 409, finished job untouched).
+95 passed.
+
+**Verified**
+- Browser, mock target, 15 users / 15 s: Problem rate 10.5% (16 × 500 of
+  152) next to Failure rate 88.2%.
+- Browser, 15 users / 30 s, Stop after 10 s through the confirm step:
+  "Stopping…" → "Cancelled" about 1 s later, "Cancelled — partial results",
+  82 requests kept; start button enabled again. So on Windows, Locust's
+  CSVs survive `terminate()`.
+- API/script, 150 users (3 workers) cancelled after 12 s: all children
+  `cancelled`, group `cancelled`, one merged Aggregated row (1,183 requests),
+  problem rate 63.7%; history and `/api/compare-jobs` show it as cancelled.
+- Browser, lost connection simulated by making the status request fail in
+  the page (the backend itself stayed up): "retrying" banner while failing
+  with the start button still disabled; after ~30 s "Status unknown…" +
+  "Check again", start button enabled, Stop hidden; "Check again" → retrying
+  → banner gone, run shown as Completed with results.
+- Browser: comparison of 3 runs shows the problem-rate row with ▲/▼ and
+  "cancelled — partial" headers; the report (Blob intercepted, not saved)
+  has the Problem rate row and the explanation.
+
+**Check by hand**
+- Stop a run yourself and confirm the partial numbers look plausible.
+- Kill the backend (Ctrl+C) during a run: you should see the retrying
+  banner, then "Status unknown" after about 30 s. (Restarting the backend
+  does not bring the run back — it lived in the old process — so "Check
+  again" will then report whatever the database last recorded, normally
+  "running". That is a limitation of in-process jobs, not of the banner.)
+- On Linux/k3s `terminate()` sends SIGTERM, which Locust handles by
+  stopping and writing final CSVs; only Windows was tested here.
+
+## Tier 2 — authenticated APIs
+
+**Built**
+- 2.1 Request headers. `analysis/request_headers.py`: `clean_headers()`
+  (object of name → value; RFC token names; single-line values, trimmed;
+  ≤ 20 headers, ≤ 4096 chars; error messages name the header, never the
+  value), `header_names()`, `redact()`.
+  - `/api/analyze` accepts optional `headers` and the probe sends them
+    (`sanity_check(url, headers)`); any probe error text is redacted.
+  - `/api/start-load-test` and `/api/start-website-load-test` accept optional
+    `headers`; they travel in memory to `_run_api_job` / `_run_website_job`
+    (new optional last parameter, so `worker.py` still works) and reach
+    Locust **only** as the environment variable `LOCUST_HEADERS`. Both
+    locustfiles read it and send the headers with every request. No file
+    holding values is ever written, so there is nothing to delete afterwards.
+  - Only names are stored: new `header_names` column (JSON list) on `jobs`
+    and `job_groups`, added with the existing try/ALTER pattern; returned
+    as a list on status responses. Locust's stdout/stderr and failures CSV
+    are passed through `redact()` before storage, in case anything echoes.
+  - In SQS mode a run with headers is refused (409): the queue message would
+    carry the values to another machine.
+  - Frontend: `components/RequestHeadersEditor.jsx` in step 2 ("Request
+    headers (optional)"): name/value rows, value in a password field, Add /
+    Remove. Sent with Analyze and both start requests. The run panel shows
+    "Sent with request headers: Authorization (values hidden)"; the report
+    lists names only.
+  - Small related fix: 401/403 are now explained as "Rejected — not
+    authorised (check the request headers)" (backend meaning) and the
+    summary says "N requests were refused as not authorised (401); check
+    the request headers" instead of "rejected as invalid input".
+- 2.2 Mock: `MOCK_REQUIRE_TOKEN` — when set, any request without
+  `Authorization: Bearer <token>` gets 401 before other rules. The startup
+  line says "bearer token required" without printing the token. Documented
+  in `code/scripts/README.md`.
+
+**Tests**: `tests/test_request_headers.py` (21): validation cases, error
+messages without values, `redact`; through the API (dispatch mocked) for a
+single run, a split run and a website run — the whole SQLite database
+(`iterdump`), the start/status/jobs responses contain no value, names are
+stored; analyze sends the headers and never returns them; probe error text
+redacted; the runner (fake Popen) gets the values only in `LOCUST_HEADERS`,
+not in the command line, writes no file containing them, and redacts an
+echoed value from stdout. Plus one failure-summary test for 401/403.
+117 passed.
+
+**Verified**
+- Script: mock with `MOCK_REQUIRE_TOKEN=demo-token` → 401 without header,
+  401 with a wrong token, 200 with the right one.
+- Browser, 15 users / 10 s, no header: every request 401 (failure 100%,
+  problem rate 0%), summary "rejected … (401)" (before the wording fix).
+- Browser, same with `Authorization: Bearer demo-token` added in the
+  editor: value field is a password field; the start request body carried
+  the header; results as without a token (400s + 500s, problem rate 16.3%);
+  "Sent with request headers: Authorization (values hidden)"; the token
+  does not appear anywhere in the page text.
+- API/script, 120 users (3 workers) with the header: 0 × 401, completed,
+  `header_names: ["Authorization"]`; the token is absent from the API
+  responses, the whole database dump, every file under
+  `load_test_results/`, and the backend and mock console logs.
+
+**Check by hand**
+- Restart the mock without `MOCK_REQUIRE_TOKEN` for normal demos.
+- Header values are kept in the page's memory only, so a page reload clears
+  them; re-enter the token after reloading.
+
+## Tier 3 — CI regression gate
+
+**Built**
+- `scripts/regression_gate.py` (standard library + requests). Arguments:
+  `--api --url --sample` (required), `--users` (50), `--duration` (30),
+  `--spawn-rate` (10), `--baseline-id`, repeatable `--header "Name: value"`,
+  `--poll-interval` (2 s), `--timeout` (duration + 300 s). Flow: generate
+  all edge cases → confirm them → start the run (split above 50 users as
+  usual) → poll status → `GET /api/regressions/<run>` → print a summary →
+  exit 0 (no regressions), 1 (regressions), 2 (any error: bad arguments,
+  backend unreachable or returning an error, run failed/timed out/cancelled
+  or never finished, no baseline, unknown `--baseline-id` — checked before
+  the run starts). `decide()` is a pure function; `run_gate()` takes the
+  HTTP object and sleep function as parameters so tests inject fakes.
+- Backend (additive): `/api/regressions/<id>?baseline_id=<id>` compares with
+  that run instead of the stored baseline (404 if it does not exist).
+  Without the parameter the endpoint behaves exactly as before.
+- `scripts/gate_sample.json` (the mock's sample body).
+- `code/.gitlab-ci.yml`: new `regression-gate` job, `when: manual`,
+  `allow_failure: true`, `needs: []`, configured by CI/CD variables
+  `GATE_API_URL`, `GATE_TARGET_URL`, optional `GATE_BASELINE_ID`. The
+  existing `test`, `build` and `deploy` jobs are unchanged.
+- `code/scripts/README.md`: usage, exit codes, example output, CI notes.
+
+**Tests**: `tests/test_regression_gate.py` (23): `decide()` for pass / fail /
+no baseline / unknown p95; argument defaults, headers, baseline id, and five
+bad-argument cases exiting with 2; full runs against a fake backend (exit 0,
+exit 1, baseline id and headers passed on, failed/cancelled/timeout runs →
+error, gives up after the timeout, unreachable backend, unknown baseline id
+before any run starts, bad sample file, `main()` maps errors to 2); the
+backend's new `?baseline_id=`. 140 passed in total.
+
+**Verified (script, against the running backend and the mock with the
+token on, using `--header`)**
+- 15 users / 15 s → "PASS: no case's failure rate rose…", exit 0.
+- 150 users / 15 s (split into 3) → "FAIL: 3 case(s) got worse…"
+  (null/missing/zero_expiresInMins 0% → 50–62%), exit 1.
+- `--baseline-id <the 150-user run>` with a 5-user run → PASS, exit 0.
+- Unreachable backend (port 5999) → "ERROR: cannot reach the backend…",
+  exit 2. `--baseline-id nope` → "ERROR: … returned 404", exit 2, no run
+  started.
+
+**Check by hand**
+- No YAML parser is installed here (and none was added), so paste
+  `code/.gitlab-ci.yml` into GitLab's CI Lint (CI/CD → Editor → Validate)
+  once, to confirm the new job parses and is listed as manual.
+- The runner needs network access to `GATE_API_URL` and the target; the
+  example uses the same `k3s` tag as the other jobs.
+
+## Tier 4 — repeated runs (series)
+
+**Built**
+- "Repeat" (1–5, default 1) in the load settings (both the API and the
+  website blocks). `repeat` is an optional field on both start endpoints;
+  with 1 (or absent) the response and behaviour are exactly as before.
+- With repeat > 1 the backend creates a **series** (`series` table, created
+  with `CREATE TABLE IF NOT EXISTS` in `init_db()`: configuration,
+  `repeat_count`, `run_ids` JSON list, status, error, header names) and a
+  background thread (`load_test_runner._run_series`) that starts one
+  ordinary run (single or split, through the unchanged start functions),
+  waits for it to finish, records its id, and starts the next. A failed /
+  timed-out / cancelled repeat ends the series. Series status: queued →
+  running → completed / failed / cancelled.
+- The series id is returned as `job_id` (plus `series_id`, `is_series`,
+  `repeat`), and `/api/load-test-status/<id>` recognises series ids first,
+  so the browser polls a series with the unchanged `pollStatus()`. A series
+  status lists each repeat (`runs`: id, status, split or not, problem rate)
+  and, once stopped, `series_summary`.
+- `analysis/series_stats.py` → `summarize_series(runs)` (pure): for the whole
+  run, mean, sample standard deviation (n − 1; none with one repeat), min,
+  max and per-repeat values of throughput (requests/s), p95 and problem
+  rate; per case, mean failure rate, min–max and the number of repeats it
+  appeared in, highest mean first. Only completed repeats are summarised.
+- Stop: `cancel_run(series_id)` marks the series cancelled (no further
+  repeats start) and cancels the current repeat (single or every child of a
+  group). The series thread also re-checks right after starting a repeat.
+- testRunning: a series is one run for the browser (status queued/running
+  until the last repeat ends), so the existing guard covers it. The progress
+  estimate is duration × repeat.
+- Frontend `components/SeriesSummary.jsx`: "Series summary" with a
+  whole-run table (Mean ± SD and each repeat's value) and a per-case table
+  (mean fail %, min – max highlighted when it spans 10+ points, repeats),
+  plus "Repeats: #1 completed (split) · …". Baseline/report buttons are not
+  shown for a series (they apply to single runs); each repeat appears in
+  the history and can be compared or marked as baseline there.
+
+**Tests**: `tests/test_series_stats.py` (6) and `tests/test_series.py` (14):
+all repeats complete; a failed repeat ends the series; the loop waits for
+each repeat; cancel stops the current repeat and starts no more; status
+endpoint with runs and summary (and none while running); cancel endpoint
+accepts a series; start endpoints: repeat 1 = old response, repeat 3 starts
+a series of ordinary runs, a series of split runs (3 children), bad repeat
+values → 400, website series. 160 passed in total.
+
+**Verified**
+- Browser, mock, 15 users × 10 s × repeat 3 (Repeat typed as 9 → "Set to 5,
+  the maximum", then 3): request body carried `repeat: 3`; "Test in
+  progress…" until all three ended; summary: throughput 12.21 ± 0.34 req/s,
+  p95 153 ± 6 ms, problem rate 6.1 ± 2.8 %, per-case table, "Repeats: #1
+  completed · #2 completed · #3 completed"; start enabled again.
+- Browser, 120 users (split into 3) × 10 s × repeat 3, Stop + confirm during
+  the series: status Cancelled; "Only 2 of 3 repeats completed before the
+  series was stopped"; summary over the two completed split repeats
+  (88.47 ± 0.43 req/s, p95 ≈152 ms); API check: series `cancelled`, repeats
+  completed/completed/cancelled, all 3 children of the last repeat
+  cancelled, and all 3 repeats listed in `/api/jobs`.
+- API/script: website series (mock as the target, 2 users × 3 s × 2) →
+  completed, 2 repeats summarised.
+
+**Check by hand**
+- A series is not listed as one item in the run history (its repeats are);
+  after a page reload its summary is reachable only by its id through
+  `/api/load-test-status/<series id>`.
+- While a series runs, the page cannot show "repeat 2 of 3" because
+  `pollStatus()` only reads the status until the end (kept unchanged on
+  purpose); the progress bar covers the whole series.
+
+## Final step (extension)
+
+**Written**: `docs/features.md` entries 17–22 (problem rate, stop, lost
+connection, request headers, CI gate, repeated runs) in the same format,
+three new glossary terms, and a "Job states" section with the state diagram
+including `cancelled`. Feature lists in `README.md` and `docs/index.md`;
+`docs/index.md` endpoint table (cancel, headers, repeat, `?baseline_id=`).
+`docs/ux-review.md`: U12, U13, U17 changed from "Deferred" to "Fixed later
+(extension Tier 1.x)".
+
+**Final checks**
+- `npm run build`: clean.
+- pytest: 160 passed with `python -m pytest` and `pytest`, from `code/` and
+  from the repo root, and in a GitLab-like copy of `code/` with plain
+  `pytest`.
+- No new npm or pip packages.
+- Browser smoke after all tiers: URL change blocks start until re-analysis
+  (and unblocks when restored); start button shows "Test in progress…"
+  during a run; a 3-user run completes; the history lists single runs and
+  split groups together (18 + 8 = 26 rows, matching the database); no
+  console errors.
+- Background backend, mock target and the preview dev server were stopped.
