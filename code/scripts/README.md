@@ -40,6 +40,18 @@ Deliberate behaviours:
 | `expiresInMins` negative | 400 |
 | `expiresInMins` not an integer, or above 1,000,000 | 500 — an unhandled exception, modelling a server that never validated this field |
 | more than `MOCK_RATE_LIMIT` requests in one second (default 40) | 429 for any request, valid or not |
+| **username longer than 256 characters** | **200 — a deliberate validation bug** (see below) |
+| more requests than `MOCK_WORKERS` (default 8) can serve, about 80/s | they queue, so response times climb with load: the breaking point of a capacity run |
+
+### The deliberate validation bug
+
+A username longer than 256 characters is never length-checked and skips the
+credential check, so the request is **accepted with 200**. The generated case
+`very_long_string_username` (5,000 characters) expects a 4xx rejection, so the
+load tester reports it under **"Accepted invalid input"**: a real-looking
+validation bug for the demo. (`missing_expiresInMins` and `null_expiresInMins`
+are also accepted, but there the mock is right: the field is optional. Switch
+those two cases to "expects 2xx" in step 3 to leave only the real bug.)
 
 Every request also waits a random 50–150 ms so response times look realistic. Change
 the rate limit with the `MOCK_RATE_LIMIT` environment variable, e.g. in PowerShell
@@ -74,7 +86,7 @@ worse than its baseline**. It uses only the standard library and `requests`.
 ```
 python scripts/regression_gate.py --api http://localhost:5000 \
     --url http://127.0.0.1:8000/api/login --sample scripts/gate_sample.json \
-    --users 50 --duration 30 [--baseline-id <run id>] [--header "Authorization: Bearer x"]
+    --users 50 --duration 30 --i-own-target [--baseline-id <run id>] [--header "Authorization: Bearer x"]
 ```
 
 What it does, in order:
@@ -82,7 +94,7 @@ What it does, in order:
 1. Reads the sample JSON body (`gate_sample.json` is the mock's sample).
 2. Generates every edge case, confirms them all, and starts the run
    (`--users`, `--duration`, `--spawn-rate`, default 10/s). Above 50 users the
-   run is split across workers as usual.
+   run is split into parallel Locust processes on the same host, as usual.
 3. Polls the run every 2 s until it finishes (gives up after `--timeout`,
    default duration + 300 s).
 4. Asks `/api/regressions/<run>` how it compares with the baseline: the run

@@ -7,6 +7,19 @@ from contextlib import contextmanager
 DB_PATH = os.environ.get("DB_PATH", "load_tests.db")
 _lock = threading.Lock()
 
+# JSON-text columns describing how a run was configured (on jobs and groups):
+#   case_expectations - {case label: "accept" | "reject"} (expected outcomes)
+#   slo               - SLO thresholds, e.g. {"p95_ms": 500} (analysis/slo.py)
+#   mode              - "fixed" (default) or "capacity"
+#   capacity_plan     - the step plan of a capacity run (analysis/capacity.py)
+#   capacity_steps    - per-step records written during a capacity run
+RUN_META_COLUMNS = ("case_expectations", "slo", "mode", "capacity_plan", "capacity_steps")
+
+# Statuses that end a run (completed_at is set when one is reached).
+FINISHED = ("completed", "failed", "timeout", "cancelled", "interrupted")
+# Statuses of a run that is still in progress.
+IN_PROGRESS = ("queued", "running")
+
 
 @contextmanager
 def _get_conn():
@@ -100,6 +113,14 @@ def init_db():
             conn.execute("ALTER TABLE job_groups ADD COLUMN header_names TEXT")
         except sqlite3.OperationalError:
             pass
+        # Extra per-run metadata stored as JSON text, added by later features.
+        # Same defensive pattern: an existing database just gains the column.
+        for table in ("jobs", "job_groups"):
+            for column in RUN_META_COLUMNS:
+                try:
+                    conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} TEXT")
+                except sqlite3.OperationalError:
+                    pass
 
 
 def create_job(job_id, target_url, users, spawn_rate, duration_seconds, group_id=None, header_names=None):
@@ -120,7 +141,7 @@ def update_job(job_id, **fields):
     with _lock, _get_conn() as conn:
         set_clause = ", ".join(f"{k} = ?" for k in fields)
         values = list(fields.values()) + [job_id]
-        if "status" in fields and fields["status"] in ("completed", "failed", "timeout", "cancelled"):
+        if "status" in fields and fields["status"] in FINISHED:
             set_clause += ", completed_at = CURRENT_TIMESTAMP"
         conn.execute(f"UPDATE jobs SET {set_clause} WHERE job_id = ?", values)
 
@@ -134,7 +155,7 @@ def get_job(job_id):
 def list_jobs(limit=50):
     with _get_conn() as conn:
         rows = conn.execute(
-            "SELECT job_id, target_url, users, status, created_at, completed_at, is_baseline "
+            "SELECT job_id, target_url, users, status, created_at, completed_at, is_baseline, slo, mode "
             "FROM jobs WHERE group_id IS NULL ORDER BY created_at DESC LIMIT ?",
             (limit,),
         ).fetchall()
@@ -160,7 +181,7 @@ def update_job_group(group_id, **fields):
     with _lock, _get_conn() as conn:
         set_clause = ", ".join(f"{k} = ?" for k in fields)
         values = list(fields.values()) + [group_id]
-        if "status" in fields and fields["status"] in ("completed", "failed", "cancelled"):
+        if "status" in fields and fields["status"] in FINISHED:
             set_clause += ", completed_at = CURRENT_TIMESTAMP"
         conn.execute(f"UPDATE job_groups SET {set_clause} WHERE group_id = ?", values)
 
@@ -182,7 +203,7 @@ def list_child_jobs(group_id):
 def list_job_groups(limit=50):
     with _get_conn() as conn:
         rows = conn.execute(
-            "SELECT group_id, target_url, users, status, created_at, completed_at, is_baseline "
+            "SELECT group_id, target_url, users, status, created_at, completed_at, is_baseline, slo, mode "
             "FROM job_groups ORDER BY created_at DESC LIMIT ?",
             (limit,),
         ).fetchall()
@@ -251,7 +272,7 @@ def update_series(series_id, **fields):
     with _lock, _get_conn() as conn:
         set_clause = ", ".join(f"{k} = ?" for k in fields)
         values = list(fields.values()) + [series_id]
-        if fields.get("status") in ("completed", "failed", "cancelled"):
+        if fields.get("status") in FINISHED:
             set_clause += ", completed_at = CURRENT_TIMESTAMP"
         conn.execute(f"UPDATE series SET {set_clause} WHERE series_id = ?", values)
 
@@ -267,3 +288,41 @@ def get_series(series_id):
     if series.get("header_names"):
         series["header_names"] = json.loads(series["header_names"])
     return series
+
+
+# ---- Active and interrupted runs ------------------------------------------------
+
+def list_active_runs():
+    """Ids of runs whose stored status is queued or running:
+    {"jobs": [single job ids, not children of a group],
+     "groups": [group ids], "series": [(series id, [run ids])]}."""
+    marks = ",".join("?" * len(IN_PROGRESS))
+    with _get_conn() as conn:
+        jobs = [r["job_id"] for r in conn.execute(
+            f"SELECT job_id FROM jobs WHERE group_id IS NULL AND status IN ({marks})", IN_PROGRESS)]
+        groups = [r["group_id"] for r in conn.execute(
+            f"SELECT group_id FROM job_groups WHERE status IN ({marks})", IN_PROGRESS)]
+        series = [(r["series_id"], json.loads(r["run_ids"] or "[]")) for r in conn.execute(
+            f"SELECT series_id, run_ids FROM series WHERE status IN ({marks})", IN_PROGRESS)]
+    return {"jobs": jobs, "groups": groups, "series": series}
+
+
+INTERRUPTED_REASON = ("The backend stopped while this run was in progress (restart or crash), "
+                      "so it never finished. Start it again.")
+
+
+def mark_interrupted_runs():
+    """Called once when the backend starts: any job, group or series still
+    queued or running belonged to a previous process that is gone, so it can
+    never finish. Marks them "interrupted" and returns how many of each."""
+    marks = ",".join("?" * len(IN_PROGRESS))
+    counts = {}
+    with _lock, _get_conn() as conn:
+        for table in ("jobs", "job_groups", "series"):
+            cur = conn.execute(
+                f"UPDATE {table} SET status = 'interrupted', error = ?, completed_at = CURRENT_TIMESTAMP "
+                f"WHERE status IN ({marks})",
+                (INTERRUPTED_REASON, *IN_PROGRESS),
+            )
+            counts[table] = cur.rowcount
+    return counts

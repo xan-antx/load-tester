@@ -10,6 +10,10 @@ import SeriesSummary from "./components/SeriesSummary";
 import AppHeader from "./components/AppHeader";
 import StepRail from "./components/StepRail";
 import RequestHeadersEditor, { headersObject } from "./components/RequestHeadersEditor";
+import OwnershipCheck from "./components/OwnershipCheck";
+import SloConfig, { DEFAULT_SLO, sloPayload } from "./components/SloConfig";
+import { VerdictChip } from "./components/SloVerdict";
+import CapacityConfig, { RunModeToggle, capacitySteps, CAPACITY_LIMITS } from "./components/CapacityConfig";
 import { colors, font, space, radius, type, z } from "./theme";
 import { formatTime } from "./utils/formatTime";
 
@@ -51,6 +55,7 @@ const iconButtonStyle = {
 };
 
 const CASE_CATEGORY_LABELS = {
+  valid_input: "Valid sample",
   missing_field: "Missing field",
   null_value: "Null value",
   type_mismatch: "Type mismatch",
@@ -60,7 +65,8 @@ const CASE_CATEGORY_LABELS = {
 };
 
 export default function App() {
-  const [url, setUrl] = useState("https://dummyjson.com/auth/login");
+  // Build-time defaults (docker compose pre-fills the local mock target).
+  const [url, setUrl] = useState(import.meta.env.VITE_DEFAULT_TARGET || "https://dummyjson.com/auth/login");
   const [analyzeResult, setAnalyzeResult] = useState(null);
   // The URL the last analysis ran on. Tests only start while the field still
   // holds this URL, so cases built for one target are never sent to another.
@@ -71,7 +77,7 @@ export default function App() {
   const [showRawAnalyze, setShowRawAnalyze] = useState(false);
 
   const [sampleInputText, setSampleInputText] = useState(
-    '{"username": "emilys", "password": "emilyspass", "expiresInMins": 30}'
+    import.meta.env.VITE_DEFAULT_SAMPLE || '{"username": "emilys", "password": "emilyspass", "expiresInMins": 30}'
   );
   const [sampleInput, setSampleInput] = useState(null);
   const [cases, setCases] = useState([]);
@@ -82,6 +88,21 @@ export default function App() {
   const [customLabel, setCustomLabel] = useState("");
   const [customPayloadText, setCustomPayloadText] = useState("");
   const [customMessage, setCustomMessage] = useState(null);
+  // Expected answer for the next custom case ("reject" = expects a 4xx).
+  const [customExpect, setCustomExpect] = useState("reject");
+  // Per-label overrides of a generated case's expected answer, e.g. an
+  // optional field the API is right to accept: { label: "accept" | "reject" }.
+  const [expectOverrides, setExpectOverrides] = useState({});
+  // "I own this target or have permission to load-test it" (required).
+  const [ownTarget, setOwnTarget] = useState(false);
+  // SLO thresholds the run is judged against (text while typing).
+  const [sloEnabled, setSloEnabled] = useState(true);
+  const [sloValues, setSloValues] = useState(DEFAULT_SLO);
+  // "fixed": one load level; "capacity": step load to find the breaking point.
+  const [runMode, setRunMode] = useState("fixed");
+  // Its own spawn rate (20/s): each step must reach its users quickly,
+  // whereas a fixed run's default ramp is 1 user per second.
+  const [capPlan, setCapPlan] = useState({ start: 20, step: 20, stepSeconds: 12, max: 200, earlyStop: true, spawn: 20 });
   // Optional request headers: [{id, name, value}]. Kept in memory only.
   const [requestHeaders, setRequestHeaders] = useState([]);
 
@@ -116,6 +137,10 @@ export default function App() {
   const [comparing, setComparing] = useState(false);
   const [startingWebsiteTest, setStartingWebsiteTest] = useState(false);
   const [startingApiTest, setStartingApiTest] = useState(false);
+  // Set when the backend refuses a start with 429 because another load test
+  // (from any browser or the CLI) is still running. Shown next to the start
+  // button as a notice rather than as an error.
+  const [busyNotice, setBusyNotice] = useState(null);
   // Status polling health: null = fine, "retrying" = the last poll failed,
   // "lost" = MAX_POLL_FAILURES polls in a row failed and polling stopped.
   const [pollState, setPollState] = useState(null);
@@ -155,6 +180,9 @@ export default function App() {
   // Once a run finishes, ask the backend how it compares with its target's
   // baseline. Kept out of pollStatus() on purpose.
   useEffect(() => {
+    // Clearing the previous run's comparison is intended (a new result
+    // replaces it); the request below then fills it in.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setRegressionInfo(null);
     if (jobResult?.status === "completed" && jobId && !jobResult.series_id) {
       loadRegressionInfo(jobId);
@@ -226,6 +254,8 @@ export default function App() {
       setAnalyzeResult(data);
       // A different target: the old cases were built for the old one.
       if (url !== analyzedUrl) {
+        setOwnTarget(false);
+        setExpectOverrides({});
         setCases([]);
         setCustomCases([]);
         setSelected({});
@@ -277,6 +307,7 @@ export default function App() {
       const defaults = {};
       data.cases.forEach((c) => (defaults[c.label] = true));
       setSelected(defaults);
+      setExpectOverrides({});
       // Custom cases were checked against the previous sample, so drop them.
       setCustomCases([]);
       setCustomMessage(null);
@@ -345,12 +376,31 @@ export default function App() {
     }
     setCustomCases((prev) => [
       ...prev,
-      { label, payload, description: result.description, classified_as: result.category },
+      { label, payload, description: result.description, classified_as: result.category, expect: customExpect },
     ]);
     setSelected((prev) => ({ ...prev, [label]: true }));
     setCustomMessage({ ok: true, text: `Added '${label}' (${result.category}): ${result.description}` });
     setCustomLabel("");
     setCustomPayloadText("");
+  }
+
+  // The expected answer of a case after any override.
+  function expectOf(c) {
+    return c.isCustom ? c.expect : expectOverrides[c.label] || c.expect;
+  }
+
+  function toggleExpect(c) {
+    const next = expectOf(c) === "accept" ? "reject" : "accept";
+    if (c.isCustom) {
+      setCustomCases((prev) => prev.map((x) => (x.label === c.label ? { ...x, expect: next } : x)));
+      return;
+    }
+    setExpectOverrides((prev) => {
+      const copy = { ...prev };
+      if (next === c.expect) delete copy[c.label];
+      else copy[c.label] = next;
+      return copy;
+    });
   }
 
   function removeCustomCase(label) {
@@ -376,15 +426,38 @@ export default function App() {
     };
   }
 
+  // Extra start-request fields for a capacity run (none for a fixed run).
+  function modeFields() {
+    if (runMode !== "capacity") return {};
+    return {
+      mode: "capacity",
+      spawn_rate: capPlan.spawn,
+      capacity: {
+        start_users: capPlan.start,
+        step_users: capPlan.step,
+        step_duration_seconds: capPlan.stepSeconds,
+        max_users: capPlan.max,
+        early_stop: capPlan.earlyStop,
+      },
+    };
+  }
+
+  // Expected length of the run, for the progress bar.
+  function expectedSeconds(settings) {
+    if (runMode === "capacity") return capacitySteps(capPlan.start, capPlan.step, capPlan.max).length * capPlan.stepSeconds;
+    return settings.duration * settings.repeat;
+  }
+
   async function confirmAndStart() {
     if (testRunning) return;
     setError(null);
+    setBusyNotice(null);
     // Generated cases go by label; custom cases are sent in full so the
     // backend can re-validate them.
     const selectedLabels = cases.filter((c) => selected[c.label]).map((c) => c.label);
     const selectedCustom = customCases
       .filter((c) => selected[c.label])
-      .map((c) => ({ label: c.label, payload: c.payload }));
+      .map((c) => ({ label: c.label, payload: c.payload, expect: c.expect }));
     if (selectedLabels.length + selectedCustom.length === 0) {
       setError("Select at least one edge case");
       return;
@@ -403,6 +476,7 @@ export default function App() {
           sample_input: sampleInput,
           selected_labels: selectedLabels,
           custom_cases: selectedCustom,
+          expectations: expectOverrides,
         }),
       });
       const confirmData = await confirmResp.json();
@@ -418,14 +492,21 @@ export default function App() {
         body: JSON.stringify({
           url,
           headers: headersObject(requestHeaders),
+          i_own_target: ownTarget,
+          slo: sloPayload(sloEnabled, sloValues),
           confirmed_cases: confirmData.confirmed_cases,
           users: settings.users,
           spawn_rate: settings.spawnRate,
           duration_seconds: settings.duration,
           repeat: settings.repeat,
+          ...modeFields(),
         }),
       });
       const startData = await startResp.json();
+      if (startResp.status === 429) {
+        setBusyNotice(startData.error || "another load test is still running. Try again when it has finished.");
+        return;
+      }
       if (!startResp.ok) {
         setError(describeError(startData, "Could not start the load test"));
         return;
@@ -435,7 +516,7 @@ export default function App() {
       setJobId(startData.job_id);
       setRunStartedAt(Date.now());
       // A series runs back to back, so the estimate covers every repeat.
-      setRunDuration(settings.duration * settings.repeat);
+      setRunDuration(expectedSeconds(settings));
       setElapsedSec(0);
       setJobStatus("queued");
       setJobResult(null);
@@ -452,6 +533,7 @@ export default function App() {
   async function startWebsiteLoadTest() {
     if (testRunning) return;
     setError(null);
+    setBusyNotice(null);
     if (targetChanged) {
       setError(TARGET_CHANGED_MESSAGE);
       return;
@@ -465,14 +547,21 @@ export default function App() {
         body: JSON.stringify({
           url,
           headers: headersObject(requestHeaders),
+          i_own_target: ownTarget,
+          slo: sloPayload(sloEnabled, sloValues),
           sitemap_raw: sitemapRaw,
           users: settings.users,
           spawn_rate: settings.spawnRate,
           duration_seconds: settings.duration,
           repeat: settings.repeat,
+          ...modeFields(),
         }),
       });
       const data = await resp.json();
+      if (resp.status === 429) {
+        setBusyNotice(data.error || "another load test is still running. Try again when it has finished.");
+        return;
+      }
       if (!resp.ok) {
         setError(data.error || "Could not start website load test");
         return;
@@ -482,7 +571,7 @@ export default function App() {
       setJobId(data.job_id);
       setRunStartedAt(Date.now());
       // A series runs back to back, so the estimate covers every repeat.
-      setRunDuration(settings.duration * settings.repeat);
+      setRunDuration(expectedSeconds(settings));
       setElapsedSec(0);
       setJobStatus("queued");
       setJobResult(null);
@@ -518,7 +607,7 @@ export default function App() {
       setPollState(null);
       setJobStatus(data.status);
 
-      if (["completed", "failed", "timeout", "cancelled"].includes(data.status)) {
+      if (["completed", "failed", "timeout", "cancelled", "interrupted"].includes(data.status)) {
         setJobResult(data);
         refreshJobHistory();
         return;
@@ -617,9 +706,50 @@ export default function App() {
     failed: { color: colors.danger, text: "Failed" },
     timeout: { color: colors.danger, text: "Timed out" },
     cancelled: { color: colors.warning, text: "Cancelled" },
+    interrupted: { color: colors.warning, text: "Interrupted" },
   }[jobStatus] || { color: colors.textMuted, text: jobStatus || "" };
 
-  const historyColumns = "22px 48px 170px minmax(140px, 1fr) 60px 90px 90px";
+  // Load settings shared by the API flow (step 3) and the website flow (step 1).
+  const sloNow = sloPayload(sloEnabled, sloValues);
+  const sloReady = !!sloNow && ["p95_ms", "avg_ms", "max_server_error_rate_pct", "max_unexpected_outcome_rate_pct"]
+    .some((k) => sloNow[k] != null);
+  const capacityTooLong =
+    capacitySteps(capPlan.start, capPlan.step, capPlan.max).length * capPlan.stepSeconds > CAPACITY_LIMITS.totalSeconds;
+  // A capacity run needs an SLO to judge its steps and must fit in 300 s.
+  const capacityBlocked = runMode === "capacity" && (!sloReady || capacityTooLong);
+  const loadSettings = (
+    <>
+      <RunModeToggle mode={runMode} onChange={setRunMode} />
+      {runMode === "fixed" ? (
+        <LoadTestConfig
+          users={testUsers}
+          spawnRate={testSpawnRate}
+          duration={testDuration}
+          onUsersChange={setTestUsers}
+          onSpawnRateChange={setTestSpawnRate}
+          onDurationChange={setTestDuration}
+          repeat={testRepeat}
+          onRepeatChange={setTestRepeat}
+        />
+      ) : (
+        <CapacityConfig
+          plan={capPlan}
+          spawnRate={capPlan.spawn}
+          onPlanChange={setCapPlan}
+          onSpawnRateChange={(spawn) => setCapPlan((p) => ({ ...p, spawn }))}
+          sloReady={sloReady}
+        />
+      )}
+      <SloConfig
+        enabled={sloEnabled}
+        values={sloValues}
+        onEnabledChange={setSloEnabled}
+        onValuesChange={setSloValues}
+      />
+    </>
+  );
+
+  const historyColumns = "22px 48px 170px minmax(140px, 1fr) 60px 90px 56px 90px";
 
   return (
     <div style={{ fontFamily: font.sans, color: colors.text }}>
@@ -703,23 +833,22 @@ export default function App() {
 
               {isWebsite && !targetChanged && (
                 <>
-                  <LoadTestConfig
-                    users={testUsers}
-                    spawnRate={testSpawnRate}
-                    duration={testDuration}
-                    onUsersChange={setTestUsers}
-                    onSpawnRateChange={setTestSpawnRate}
-                    onDurationChange={setTestDuration}
-                    repeat={testRepeat}
-                    onRepeatChange={setTestRepeat}
-                  />
+                  {loadSettings}
                   <WebsiteLoadTestSection
                     sitemapRaw={sitemapRaw}
                     onStart={startWebsiteLoadTest}
                     starting={startingWebsiteTest}
                     testRunning={testRunning}
                     targetUrl={analyzedUrl}
+                    ownTarget={ownTarget}
+                    onOwnTargetChange={setOwnTarget}
+                    blocked={capacityBlocked}
                   />
+                  {busyNotice && (
+                    <p role="status" style={{ margin: `${space.sm}px 0 0`, fontSize: type.body, color: colors.warning }}>
+                      Server busy: {busyNotice}
+                    </p>
+                  )}
                 </>
               )}
             </Section>
@@ -841,6 +970,23 @@ export default function App() {
                             <span style={{ fontFamily: font.mono, fontSize: type.meta, color: colors.textFaint }}>
                               {c.label}
                             </span>
+                            {c.expect && (
+                              <button
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  toggleExpect(c);
+                                }}
+                                className="toggle"
+                                aria-pressed={expectOf(c) === "accept"}
+                                aria-label={`Expected answer for ${c.label}: ${expectOf(c) === "accept" ? "2xx success" : "4xx rejection"}. Click to switch.`}
+                                title={expectOf(c) === "accept"
+                                  ? "Valid input: a 2xx answer is correct. Click to expect a 4xx rejection."
+                                  : "Invalid input: a 4xx rejection is correct. Click to expect a 2xx success (e.g. an optional field)."}
+                                style={{ fontFamily: font.mono, minWidth: 92 }}
+                              >
+                                expects {expectOf(c) === "accept" ? "2xx" : "4xx"}
+                              </button>
+                            )}
                             {c.isCustom && (
                               <button
                                 onClick={(e) => {
@@ -892,6 +1038,18 @@ export default function App() {
                       />
                     </div>
                     <div>
+                      <label htmlFor="custom-expect" style={labelStyle}>Expected answer</label>
+                      <select
+                        id="custom-expect"
+                        style={{ ...inputStyle, width: "auto" }}
+                        value={customExpect}
+                        onChange={(e) => setCustomExpect(e.target.value)}
+                      >
+                        <option value="reject">Reject it (4xx) — invalid input</option>
+                        <option value="accept">Accept it (2xx) — valid input</option>
+                      </select>
+                    </div>
+                    <div>
                       <button onClick={validateCustomCase} className="btn btn-secondary">
                         Validate and add
                       </button>
@@ -907,17 +1065,9 @@ export default function App() {
                   </div>
                 </details>
 
-                <LoadTestConfig
-                  users={testUsers}
-                  spawnRate={testSpawnRate}
-                  duration={testDuration}
-                  onUsersChange={setTestUsers}
-                  onSpawnRateChange={setTestSpawnRate}
-                  onDurationChange={setTestDuration}
-                  repeat={testRepeat}
-                  onRepeatChange={setTestRepeat}
-                />
+                {loadSettings}
 
+                <OwnershipCheck id="own-target-api" checked={ownTarget} onChange={setOwnTarget} />
                 {targetChanged ? (
                   <p style={{ margin: `${space.sm}px 0 0`, fontSize: type.meta, color: colors.warning }}>
                     {TARGET_CHANGED_MESSAGE}
@@ -932,10 +1082,15 @@ export default function App() {
                   onClick={confirmAndStart}
                   className="btn btn-primary"
                   style={{ marginTop: space.sm }}
-                  disabled={testRunning || startingApiTest || targetChanged}
+                  disabled={testRunning || startingApiTest || targetChanged || !ownTarget || capacityBlocked}
                 >
                   {testRunning ? "Test in progress…" : startingApiTest ? "Starting…" : "Confirm selection and start load test"}
                 </button>
+                {busyNotice && (
+                  <p role="status" style={{ margin: `${space.sm}px 0 0`, fontSize: type.body, color: colors.warning }}>
+                    Server busy: {busyNotice}
+                  </p>
+                )}
               </Section>
             )}
 
@@ -953,7 +1108,7 @@ export default function App() {
                   </span>
                   {jobResult?.child_jobs?.length > 1 && (
                     <span
-                      title="Runs above 50 users are split across workers and their results merged."
+                      title="Runs above 50 users run as several Locust processes in parallel on the same host (one per 50 users, at most 10). Their results are merged; the merged p95 is an approximation."
                       style={{
                         border: `1px solid ${colors.accent}`,
                         color: colors.accent,
@@ -964,7 +1119,7 @@ export default function App() {
                         whiteSpace: "nowrap",
                       }}
                     >
-                      Split across {jobResult.child_jobs.length} workers
+                      {jobResult.child_jobs.length} parallel Locust processes
                     </span>
                   )}
                   <span
@@ -1094,7 +1249,7 @@ export default function App() {
                     overflowX: "auto",
                   }}
                 >
-                  <div style={{ minWidth: 620 }}>
+                  <div style={{ minWidth: 680 }}>
                     <div
                       aria-hidden="true"
                       style={{
@@ -1114,6 +1269,7 @@ export default function App() {
                       <span>Target</span>
                       <span>Users</span>
                       <span>Status</span>
+                      <span>SLO</span>
                       <span>Baseline</span>
                     </div>
                     <div style={{ maxHeight: 240, overflowY: "auto" }}>
@@ -1153,7 +1309,8 @@ export default function App() {
                               {j.target_url}
                             </span>
                             <span>{j.users}</span>
-                            <span style={{ color: j.status === "cancelled" ? colors.warning : j.status === "completed" ? colors.textMuted : colors.text }}>{j.status}</span>
+                            <span style={{ color: ["cancelled", "interrupted"].includes(j.status) ? colors.warning : ["failed", "timeout"].includes(j.status) ? colors.danger : j.status === "completed" ? colors.textMuted : colors.text }}>{j.status}{j.mode === "capacity" ? " · capacity" : ""}</span>
+                            <span><VerdictChip verdict={j.slo_verdict} /></span>
                             <span style={{ color: colors.accent }}>{j.is_baseline ? "★ baseline" : ""}</span>
                           </label>
                         );

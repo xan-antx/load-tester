@@ -1,0 +1,124 @@
+# Primary CI/CD pipeline. (code/.gitlab-ci.yml is the older GitLab pipeline,
+# kept for reference; mkdocs.yml in this folder publishes the docs site.)
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Backend tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: code
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: code/requirements.txt
+      - name: Install dependencies
+        run: pip install -r requirements.txt pytest==9.1.1
+      - name: Run pytest
+        run: python -m pytest -q
+
+  frontend:
+    name: Frontend lint and build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: code/frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: code/frontend/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run build
+
+  performance-gate:
+    name: Performance gate (mock target)
+    needs: backend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: code
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: code/requirements.txt
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Start the mock target and the backend
+        run: |
+          nohup python scripts/mock_target.py > mock.log 2>&1 &
+          nohup python app.py > backend.log 2>&1 &
+      - name: Wait for /health
+        run: |
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:5000/health > /dev/null \
+               && curl -sS -o /dev/null -X POST http://127.0.0.1:8000/api/login; then
+              echo "backend and mock target are up"; exit 0
+            fi
+            sleep 1
+          done
+          echo "services did not start"; cat backend.log mock.log; exit 1
+      - name: Run the load test with SLO gate
+        id: gate
+        run: python cli.py run --config loadtest.ci.yml
+      - name: Write the verdict to the job summary
+        if: always()
+        run: |
+          if [ -f perf-results/summary.md ]; then
+            cat perf-results/summary.md >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "### SLO verdict: ERROR (no result, see the step log)" >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Upload the report and JSON result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: performance-report
+          path: code/perf-results/
+          if-no-files-found: warn
+      - name: Show service logs on failure
+        if: failure()
+        run: tail -n 60 backend.log mock.log
+
+  docker:
+    name: Build and push image
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [backend, frontend, performance-gate]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: code
+          push: true
+          tags: |
+            ghcr.io/xan-antx/load-tester:${{ github.sha }}
+            ghcr.io/xan-antx/load-tester:latest

@@ -3,6 +3,7 @@ import { parseStatsCsv } from "../utils/parseStatsCsv";
 import { formatTime } from "../utils/formatTime";
 import { failuresByKind } from "../utils/outcomes";
 import OutcomeStrip from "./OutcomeStrip";
+import { VerdictChip } from "./SloVerdict";
 import { colors, font, space, type } from "../theme";
 
 function num(row, key) {
@@ -93,7 +94,7 @@ export default function CompareView({ jobs, caseComparison }) {
       goodWhenUp: false,
     },
     { label: "Avg response ms", get: (t) => num(t, "Average Response Time"), fmt: (v) => Math.round(v), goodWhenUp: false },
-    { label: anyGroup ? "p95 response ms (≈ for split runs)" : "p95 response ms", get: (t) => num(t, "95%"), fmt: (v) => Math.round(v), goodWhenUp: false },
+    { label: anyGroup ? "p95 response ms (≈ for split runs)" : "p95 response ms", get: (t) => num(t, "95%"), fmt: (v) => Math.round(v), goodWhenUp: false, approxForSplit: true },
     { label: "Requests / s", get: (t) => num(t, "Requests/s"), fmt: (v) => v.toFixed(2), goodWhenUp: true },
   ];
 
@@ -135,6 +136,21 @@ export default function CompareView({ jobs, caseComparison }) {
             </tr>
           </thead>
           <tbody>
+            {jobs.some((j) => j.slo_verdict) && (
+              <tr>
+                <td style={{ ...tdStyle, color: colors.textMuted }}>SLO verdict</td>
+                {jobs.map((j, i) => (
+                  <td key={i} style={tdStyle}>
+                    {j.slo_verdict?.verdict ? <VerdictChip verdict={j.slo_verdict.verdict} /> : "—"}
+                    {j.slo_verdict && (
+                      <span style={{ marginLeft: space.sm, fontSize: type.meta, color: colors.textMuted }}>
+                        {j.slo_verdict.passed}/{j.slo_verdict.passed + j.slo_verdict.failed} met
+                      </span>
+                    )}
+                  </td>
+                ))}
+              </tr>
+            )}
             <tr>
               <td style={{ ...tdStyle, color: colors.textMuted }}>Outcomes</td>
               {jobs.map((j, i) => (
@@ -156,6 +172,7 @@ export default function CompareView({ jobs, caseComparison }) {
                     const v = m.get(t, i);
                     return (
                       <td key={i} style={tdStyle}>
+                        {v != null && m.approxForSplit && Array.isArray(jobs[i].child_jobs) ? "≈" : ""}
                         {v != null ? m.fmt(v) : "—"}
                         {i > 0 && <Delta base={base} value={v} goodWhenUp={m.goodWhenUp} />}
                       </td>

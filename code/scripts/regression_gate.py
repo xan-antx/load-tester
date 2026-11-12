@@ -12,7 +12,7 @@ to finish, compares it with a baseline run and sets the exit code:
 Usage (from code/):
     python scripts/regression_gate.py --api http://localhost:5000 \
         --url http://127.0.0.1:8000/api/login --sample scripts/gate_sample.json \
-        --users 50 --duration 30 [--baseline-id <id>] [--header "Name: value"]
+        --users 50 --duration 30 --i-own-target [--baseline-id <id>] [--header "Name: value"]
 
 Only the standard library and requests are used.
 """
@@ -28,7 +28,7 @@ EXIT_OK = 0
 EXIT_REGRESSIONS = 1
 EXIT_ERROR = 2
 
-TERMINAL_STATUSES = ("completed", "failed", "timeout", "cancelled")
+TERMINAL_STATUSES = ("completed", "failed", "timeout", "cancelled", "interrupted")
 
 
 class GateError(Exception):
@@ -64,6 +64,8 @@ def parse_args(argv):
     p.add_argument("--duration", type=_int_in_range(1, 300), default=30, help="seconds")
     p.add_argument("--spawn-rate", type=_int_in_range(1, 20), default=10, help="new users per second")
     p.add_argument("--baseline-id", help="compare with this run instead of the target's stored baseline")
+    p.add_argument("--i-own-target", action="store_true",
+                   help="confirm you own the target or have permission to load-test it (required)")
     p.add_argument("--header", type=parse_header, action="append", default=[],
                    help="request header 'Name: value' (repeatable), e.g. 'Authorization: Bearer x'")
     p.add_argument("--poll-interval", type=float, default=2.0, help="seconds between status checks")
@@ -143,6 +145,8 @@ def _call(http, method, url, **kwargs):
 def run_gate(args, http=requests, sleep=time.sleep, out=print):
     """Runs the whole gate and returns the exit code. http and sleep are
     injectable so the tests need no network and no waiting."""
+    if not getattr(args, "i_own_target", False):
+        raise GateError("pass --i-own-target to confirm you own the target or may load-test it")
     sample = load_sample(args.sample)
     headers = dict(args.header)
     if args.baseline_id:
@@ -157,7 +161,7 @@ def run_gate(args, http=requests, sleep=time.sleep, out=print):
 
     body = {
         "url": args.url, "confirmed_cases": confirmed, "users": args.users,
-        "spawn_rate": args.spawn_rate, "duration_seconds": args.duration,
+        "spawn_rate": args.spawn_rate, "duration_seconds": args.duration, "i_own_target": True,
     }
     if headers:
         body["headers"] = headers

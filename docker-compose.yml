@@ -1,0 +1,54 @@
+# One-command demo:   docker compose up --build
+# then open http://localhost:8080 (the app opens pre-filled for the mock target).
+#
+#   frontend  nginx serving the built React app on :8080; proxies /api to backend
+#   backend   the Flask API under gunicorn (same image as production)
+#   mock      the local mock login API (scripts/mock_target.py), reachable from
+#             the backend as http://mock:8000/api/login
+#
+# Inside compose the mock target has a private address (172.x), so the backend
+# runs with ALLOW_PRIVATE_TARGETS=true. Never do that on a public deployment.
+
+services:
+  backend:
+    build: ./code
+    environment:
+      ALLOW_PRIVATE_TARGETS: "true"
+      CORS_ALLOWED_ORIGINS: "http://localhost:8080,http://127.0.0.1:8080"
+      DB_PATH: /data/load_tests.db
+    volumes:
+      - backend-data:/data
+    ports:
+      - "5000:5000"   # optional: lets cli.py on the host use http://localhost:5000
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5000/health')"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    depends_on:
+      - mock
+
+  mock:
+    build: ./code
+    command: ["python", "scripts/mock_target.py"]
+    environment:
+      MOCK_HOST: 0.0.0.0
+      MOCK_PORT: "8000"
+    ports:
+      - "8000:8000"   # optional: reach the mock from the host too
+
+  frontend:
+    build:
+      context: ./code/frontend
+      args:
+        VITE_API_BASE: http://localhost:8080
+        VITE_DEFAULT_TARGET: http://mock:8000/api/login
+        VITE_DEFAULT_SAMPLE: '{"username": "demo", "password": "demo123", "expiresInMins": 30}'
+    ports:
+      - "8080:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  backend-data:

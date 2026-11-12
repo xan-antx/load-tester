@@ -85,6 +85,7 @@ def _whole_database_text():
 @pytest.mark.parametrize("users", [10, 120])  # single run and split run
 def test_api_run_stores_names_but_never_values(client, users):
     resp = client.post("/api/start-load-test", json={
+        "i_own_target": True,
         "url": "http://127.0.0.1:8000/api/login", "confirmed_cases": CASES,
         "users": users, "spawn_rate": 1, "duration_seconds": 5, "headers": HEADERS,
     })
@@ -107,6 +108,7 @@ def test_api_run_stores_names_but_never_values(client, users):
 
 def test_website_run_stores_names_but_never_values(client):
     resp = client.post("/api/start-website-load-test", json={
+        "i_own_target": True,
         "url": "http://127.0.0.1:8000/", "users": 2, "spawn_rate": 1, "duration_seconds": 5,
         "headers": HEADERS,
     })
@@ -117,6 +119,7 @@ def test_website_run_stores_names_but_never_values(client):
 
 def test_run_without_headers_still_works(client):
     resp = client.post("/api/start-load-test", json={
+        "i_own_target": True,
         "url": "http://127.0.0.1:8000/api/login", "confirmed_cases": CASES,
         "users": 1, "spawn_rate": 1, "duration_seconds": 5,
     })
@@ -127,6 +130,7 @@ def test_run_without_headers_still_works(client):
 
 def test_bad_headers_are_rejected(client):
     resp = client.post("/api/start-load-test", json={
+        "i_own_target": True,
         "url": "http://t/", "confirmed_cases": CASES, "headers": {"Bad Name": "x"},
     })
     assert resp.status_code == 400
@@ -136,6 +140,7 @@ def test_bad_headers_are_rejected(client):
 def test_headers_refused_in_sqs_mode(client, monkeypatch):
     monkeypatch.setattr(load_test_runner, "USE_SQS", True)
     resp = client.post("/api/start-load-test", json={
+        "i_own_target": True,
         "url": "http://t/", "confirmed_cases": CASES, "headers": HEADERS,
     })
     assert resp.status_code == 409
@@ -180,10 +185,16 @@ def test_runner_passes_values_via_env_only_and_writes_no_file(tmp_path, monkeypa
     captured = {}
 
     class FakeProc:
+        returncode = 0
+
         def __init__(self, cmd, env=None, **kwargs):
             captured["cmd"], captured["env"] = cmd, env
+            self.cmd = cmd
 
         def communicate(self, timeout=None):
+            prefix = self.cmd[self.cmd.index("--csv") + 1]
+            with open(prefix + "_stats.csv", "w") as f:
+                f.write("Type,Name,Request Count,Failure Count\n,Aggregated,3,0\n")
             # Even if Locust echoed the value, it must not be stored.
             return f"stdout mentions {SECRET}", f"stderr mentions {SECRET}"
 

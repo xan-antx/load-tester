@@ -1,3 +1,5 @@
+# SQS queue-mode worker. NOT DEPLOYED — future work: the deployed backend runs
+# load tests in-process (USE_SQS=false). See code/RUNBOOK.md.
 import time
 from sqs_client import receive_job_messages, delete_job_message
 from load_test_runner import _run_api_job, _run_website_job

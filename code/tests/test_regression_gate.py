@@ -125,7 +125,7 @@ class FakeHttp:
 def args(tmp_path):
     sample = tmp_path / "sample.json"
     sample.write_text(json.dumps({"username": "demo"}))
-    return gate.parse_args(["--api", "http://api", "--url", "http://t/api/login",
+    return gate.parse_args(["--api", "http://api", "--url", "http://t/api/login", "--i-own-target",
                             "--sample", str(sample), "--users", "50", "--duration", "5"])
 
 
@@ -228,3 +228,18 @@ def test_regressions_endpoint_accepts_explicit_baseline(tmp_path, monkeypatch):
     assert [r["case"] for r in explicit["regressions"]] == ["a"]
 
     assert client.get("/api/regressions/new?baseline_id=nope").status_code == 404
+
+
+def test_refuses_to_start_without_ownership_confirmation(args):
+    args.i_own_target = False
+    http = FakeHttp()
+    with pytest.raises(gate.GateError, match="--i-own-target"):
+        _run(args, http)
+    assert http.calls == []
+
+
+def test_start_request_confirms_ownership(args):
+    http = FakeHttp()
+    _run(args, http)
+    start_body = next(c[2] for c in http.calls if c[1].endswith("/start-load-test"))
+    assert start_body["i_own_target"] is True

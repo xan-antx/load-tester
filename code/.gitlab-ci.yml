@@ -30,7 +30,7 @@ regression-gate:
     - python3 -m venv .venv
     - .venv/bin/pip install requests
     - .venv/bin/python scripts/regression_gate.py --api "$GATE_API_URL" --url "$GATE_TARGET_URL"
-      --sample scripts/gate_sample.json --users 50 --duration 30
+      --sample scripts/gate_sample.json --users 50 --duration 30 --i-own-target
       ${GATE_BASELINE_ID:+--baseline-id "$GATE_BASELINE_ID"}
 
 build:

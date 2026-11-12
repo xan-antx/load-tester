@@ -153,7 +153,7 @@ def client(db, monkeypatch):
 
 
 def _start(client, **extra):
-    body = {"url": "http://127.0.0.1:8000/api/login", "confirmed_cases": CASES,
+    body = {"url": "http://127.0.0.1:8000/api/login", "confirmed_cases": CASES, "i_own_target": True,
             "users": 10, "spawn_rate": 1, "duration_seconds": 5}
     body.update(extra)
     return client.post("/api/start-load-test", json=body)
@@ -191,6 +191,7 @@ def test_bad_repeat_is_rejected(client, repeat):
 
 def test_website_series(client):
     resp = client.post("/api/start-website-load-test", json={
+        "i_own_target": True,
         "url": "http://127.0.0.1:8000/", "users": 2, "spawn_rate": 1, "duration_seconds": 5, "repeat": 2,
     })
     body = resp.get_json()

@@ -15,9 +15,11 @@ STATS = "Type,Name,Request Count,Failure Count,95%\nPOST,a,10,0,100\n,Aggregated
 
 class FakeProc:
     def __init__(self, *args, **kwargs):
+        self.cmd = args[0] if args else []
         self.env = kwargs.get("env")
         self.stopped = threading.Event()
         self.terminated = False
+        self.returncode = 0
 
     def communicate(self, timeout=None):
         self.stopped.wait(5)
@@ -90,7 +92,11 @@ def test_cancel_running_job_without_csv_has_no_results(db, monkeypatch):
 
 def test_uncancelled_job_still_completes(db, monkeypatch):
     class Quick(FakeProc):
+        """A clean Locust run: exit code 0 and a stats CSV."""
         def communicate(self, timeout=None):
+            prefix = self.cmd[self.cmd.index("--csv") + 1]
+            with open(prefix + "_stats.csv", "w") as f:
+                f.write(STATS)
             return "out", "err"
 
     monkeypatch.setattr(subprocess, "Popen", Quick)

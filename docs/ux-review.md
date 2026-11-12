@@ -11,7 +11,7 @@ target (`scripts/mock_target.py`) on port 8000. The full flow was run end to end
 2. Generate edge cases from `{"username":"demo","password":"demo123","expiresInMins":30}`.
 3. Add a custom case `admin_user`.
 4. Run 15 users (15 per second, 30 s) and mark it as the baseline.
-5. Run 150 users (20 per second, 30 s). This split across 3 workers and showed 3 regressions against the baseline.
+5. Run 150 users (20 per second, 30 s). This was split into 3 parallel Locust processes on the same host and showed 3 regressions against the baseline.
 6. Download the Markdown report.
 7. Compare 3 runs.
 8. Analyze `https://example.com` and run a website test (2 users, 5 s).

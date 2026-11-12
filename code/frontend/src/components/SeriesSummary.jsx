@@ -112,7 +112,7 @@ export default function SeriesSummary({ data }) {
 
       <p style={{ fontSize: type.meta, color: colors.textMuted, fontFamily: font.mono, marginTop: space.md }}>
         Repeats:{" "}
-        {runs.map((r, i) => `#${i + 1} ${r.status}${r.is_group ? " (split)" : ""}`).join(" · ") || "none started"}
+        {runs.map((r, i) => `#${i + 1} ${r.status}${r.is_group ? " (split)" : ""}${r.slo_verdict ? ` SLO ${r.slo_verdict}` : ""}`).join(" · ") || "none started"}
       </p>
     </div>
   );

@@ -19,14 +19,16 @@ export function clampInt(value, { min, max }) {
 
 // The text is kept locally while typing (so the field can be empty for a
 // moment); the parent only receives a clamped integer on blur or Enter.
-function NumberField({ label, value, limits, onCommit }) {
+export function NumberField({ label, value, limits, onCommit }) {
   const [text, setText] = useState(String(value));
   // Set when the typed value had to be changed, so the user sees why.
   const [note, setNote] = useState(null);
   const noteId = useId();
 
   // Both config blocks share the same parent value; follow it when it changes.
+  // (The local text exists so a field can be empty while typing.)
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setText(String(value));
   }, [value]);
 

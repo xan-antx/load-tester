@@ -12,10 +12,20 @@ spec:
       labels:
         app: load-tester-api
     spec:
+      # The image runs as uid 10001 (see Dockerfile); fsGroup makes the
+      # SQLite volume writable for that user.
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
       containers:
         - name: load-tester-api
-          image: load-tester-api:latest
-          imagePullPolicy: IfNotPresent
+          # Built and pushed by GitHub Actions (.github/workflows/ci.yml) on
+          # every push to main; also tagged with the commit SHA. The GHCR
+          # package must be public, or the cluster needs an imagePullSecret.
+          image: ghcr.io/xan-antx/load-tester:latest
+          imagePullPolicy: Always
           ports:
             - containerPort: 5000
           envFrom:
@@ -27,11 +37,19 @@ spec:
           env:
             - name: DB_PATH
               value: "/data/load_tests.db"
-            # Queue mode requires k8s/worker-deployment.yaml to be applied and a
+            # Queue mode is NOT DEPLOYED (future work). It would require
+            # k8s/worker-deployment.yaml to be applied and a
             # worker image (Dockerfile.worker) to be built/pushed — a later phase.
             # Until then jobs run in-process (background threads), same as local mode.
             - name: USE_SQS
               value: "false"
+            # A public deployment must not probe or load-test the cluster's
+            # own network: private, loopback, link-local and multicast
+            # targets are refused (metadata addresses always are).
+            - name: ALLOW_PRIVATE_TARGETS
+              value: "false"
+          securityContext:
+            allowPrivilegeEscalation: false
           readinessProbe:
             httpGet:
               path: /health

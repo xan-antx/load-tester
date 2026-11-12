@@ -10,7 +10,7 @@ import uuid
 from job_store import (
     create_job, update_job, get_job,
     create_job_group, update_job_group, get_job_group, list_child_jobs,
-    create_series, update_series, get_series,
+    create_series, update_series, get_series, list_active_runs,
 )
 from sqs_client import send_job_message
 from stats_aggregator import merge_stats_csvs, merge_failures_csvs, merge_history_csvs
@@ -21,14 +21,19 @@ os.makedirs(RESULTS_DIR, exist_ok=True)
 
 USE_SQS = os.environ.get("USE_SQS", "false").lower() == "true"
 
-# A single worker has been validated comfortably up to this many concurrent
-# users. Requests above this get split into multiple child jobs so several
-# worker pods can process them in parallel.
+# One Locust process has been validated comfortably up to this many concurrent
+# users. Larger runs are split into child jobs, each its own Locust process,
+# running in parallel on THIS host (one per 50 users, at most 10); their
+# results are merged and the merged p95 is an approximation. Spreading them
+# over several machines would need queue mode, which is not deployed (future
+# work).
 SPLIT_THRESHOLD = 50
 MAX_CHILD_JOBS = 10
 
-# Statuses after which a job never changes again.
-TERMINAL_STATUSES = ("completed", "failed", "timeout", "cancelled")
+# Statuses after which a job never changes again. "interrupted": the backend
+# process that ran it stopped (see job_store.mark_interrupted_runs).
+TERMINAL_STATUSES = ("completed", "failed", "timeout", "cancelled", "interrupted")
+ACTIVE_STATUSES = ("queued", "running")
 
 # Running Locust processes by job id, so a run can be stopped, and the ids
 # whose cancellation was requested. Both live in this process only.
@@ -55,7 +60,7 @@ def _cancel_job(job_id):
     if proc is not None:
         proc.terminate()
     elif job["status"] == "queued":
-        update_job(job_id, status="cancelled")
+        _set_job(job_id, status="cancelled")
 
 
 def cancel_run(run_id):
@@ -88,7 +93,33 @@ def _with_headers(env, headers):
     return env
 
 
-def _run_api_job(job_id, target_url, target_path, cases, users, spawn_rate, duration_seconds, headers=None):
+LOCUST_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "locust_tests")
+
+
+def _locustfiles(user_file, env, job_dir, step_plan):
+    """The -f argument. A capacity run adds the step-load shape, combined with
+    the user file as "a.py,b.py", so normal runs never load it."""
+    path = os.path.join(LOCUST_DIR, user_file)
+    if step_plan:
+        plan = dict(step_plan, steps_file=os.path.join(job_dir, "steps.json"))
+        env["LOCUST_STEP_PLAN"] = json.dumps(plan)
+        path += "," + os.path.join(LOCUST_DIR, "step_shape.py")
+    return path
+
+
+def _steps_reader(job_dir):
+    """Reads the step records a capacity run wrote (see step_shape.py)."""
+    def read():
+        steps_file = os.path.join(job_dir, "steps.json")
+        if not os.path.exists(steps_file):
+            return {}
+        with open(steps_file) as f:
+            return {"capacity_steps": f.read()}
+    return read
+
+
+def _run_api_job(job_id, target_url, target_path, cases, users, spawn_rate, duration_seconds, headers=None,
+                 step_plan=None):
     job_dir = os.path.join(RESULTS_DIR, job_id)
     os.makedirs(job_dir, exist_ok=True)
 
@@ -103,11 +134,13 @@ def _run_api_job(job_id, target_url, target_path, cases, users, spawn_rate, dura
     env["LOCUST_TARGET_PATH"] = target_path
     _with_headers(env, headers)
 
-    locustfile_path = os.path.join(os.path.dirname(__file__), "locust_tests", "dynamic_locustfile.py")
-    _run_locust(job_id, locustfile_path, env, target_url, users, spawn_rate, duration_seconds, csv_prefix)
+    locustfile_path = _locustfiles("dynamic_locustfile.py", env, job_dir, step_plan)
+    _run_locust(job_id, locustfile_path, env, target_url, users, spawn_rate, duration_seconds, csv_prefix,
+                extra_results=_steps_reader(job_dir) if step_plan else None)
 
 
-def _run_website_job(job_id, target_url, paths, users, spawn_rate, duration_seconds, headers=None):
+def _run_website_job(job_id, target_url, paths, users, spawn_rate, duration_seconds, headers=None,
+                     step_plan=None):
     job_dir = os.path.join(RESULTS_DIR, job_id)
     os.makedirs(job_dir, exist_ok=True)
 
@@ -121,13 +154,18 @@ def _run_website_job(job_id, target_url, paths, users, spawn_rate, duration_seco
     env["LOCUST_PATHS_FILE"] = paths_file
     _with_headers(env, headers)
 
-    locustfile_path = os.path.join(os.path.dirname(__file__), "locust_tests", "website_locustfile.py")
-    _run_locust(job_id, locustfile_path, env, target_url, users, spawn_rate, duration_seconds, csv_prefix)
+    locustfile_path = _locustfiles("website_locustfile.py", env, job_dir, step_plan)
+    _run_locust(job_id, locustfile_path, env, target_url, users, spawn_rate, duration_seconds, csv_prefix,
+                extra_results=_steps_reader(job_dir) if step_plan else None)
 
 
-def _run_locust(job_id, locustfile_path, env, target_url, users, spawn_rate, duration_seconds, csv_prefix):
-    if not os.path.exists(locustfile_path):
-        update_job(job_id, status="failed", error=f"locustfile not found at {locustfile_path}")
+def _run_locust(job_id, locustfile_path, env, target_url, users, spawn_rate, duration_seconds, csv_prefix,
+                extra_results=None):
+    """extra_results: optional function returning more fields to store with
+    the results (read before the job is marked finished, so a poll never sees
+    "completed" without them)."""
+    if not all(os.path.exists(p) for p in locustfile_path.split(",")):
+        _set_job(job_id, status="failed", error=f"locustfile not found at {locustfile_path}")
         return
 
     cmd = [
@@ -139,14 +177,18 @@ def _run_locust(job_id, locustfile_path, env, target_url, users, spawn_rate, dur
         "-t", f"{duration_seconds}s",
         "--host", target_url,
         "--csv", csv_prefix,
+        # By default Locust exits with 1 whenever any request failed, which
+        # is normal for a load test. With 0 here, a non-zero exit code means
+        # Locust itself went wrong (bad locustfile, crash, killed).
+        "--exit-code-on-error", "0",
     ]
 
     # Cancelled while still queued: never start Locust.
     if _is_cancel_requested(job_id):
-        update_job(job_id, status="cancelled")
+        _set_job(job_id, status="cancelled")
         return
 
-    update_job(job_id, status="running")
+    _set_job(job_id, status="running")
 
     try:
         # Popen instead of subprocess.run so cancel_run() can reach the
@@ -193,21 +235,68 @@ def _run_locust(job_id, locustfile_path, env, target_url, users, spawn_rate, dur
         # Belt and braces: if Locust ever echoed a header value, hide it
         # before anything is stored.
         headers = json.loads(env.get("LOCUST_HEADERS") or "{}")
+        extra = extra_results() if extra_results else {}
         # A cancelled run keeps whatever CSVs Locust had written so far
-        # (it rewrites them every few seconds) as partial results.
-        update_job(
+        # (it rewrites them every few seconds) as partial results. Otherwise a
+        # run only counts as completed when Locust exited cleanly AND wrote
+        # its statistics; anything else is a failed run, with the end of
+        # Locust's error output as the reason.
+        error = None
+        if _is_cancel_requested(job_id):
+            status = "cancelled"
+        elif proc.returncode != 0:
+            status = "failed"
+            error = f"Locust exited with code {proc.returncode}. " + _error_tail(stderr, stdout)
+        elif stats_csv is None:
+            status = "failed"
+            error = "Locust finished without writing statistics. " + _error_tail(stderr, stdout)
+        else:
+            status = "completed"
+        _set_job(
             job_id,
-            status="cancelled" if _is_cancel_requested(job_id) else "completed",
+            status=status,
+            error=redact(error, headers),
             stdout=redact((stdout or "")[-3000:], headers),
             stderr=redact((stderr or "")[-3000:], headers),
             stats_csv=stats_csv,
             failures_csv=redact(failures_csv, headers),
             history_csv=history_csv,
+            **extra,
         )
     except subprocess.TimeoutExpired:
-        update_job(job_id, status="timeout")
+        _set_job(job_id, status="timeout")
     except Exception as e:
-        update_job(job_id, status="failed", error=str(e))
+        _set_job(job_id, status="failed", error=str(e))
+
+
+def _error_tail(stderr, stdout, limit=1200):
+    """The useful end of Locust's output for an error message: the last
+    traceback if there is one (Locust prints its final stats table after it),
+    otherwise the last lines."""
+    text = (stderr or "").strip() or (stdout or "").strip()
+    if not text:
+        return "It printed nothing."
+    start = text.rfind("Traceback (most recent call last)")
+    if start != -1:
+        text = text[start:]
+        for marker in ("\nType     Name", "\nResponse time percentiles"):
+            cut = text.find(marker)
+            if cut != -1:
+                text = text[:cut]
+    else:
+        text = "\n".join(text.splitlines()[-15:])
+    text = text.strip()
+    return text if len(text) <= limit else "..." + text[-limit:]
+
+
+def _set_job(job_id, **fields):
+    """update_job, then refresh the job's split group (if any), so the
+    group's stored status follows its children."""
+    update_job(job_id, **fields)
+    if "status" in fields:
+        job = get_job(job_id)
+        if job and job.get("group_id"):
+            get_group_status(job["group_id"])
 
 
 def _dispatch_single(job_type, job_id, target_url, users, spawn_rate, duration_seconds,
@@ -243,63 +332,89 @@ def _split_users(total_users):
     return [base + (1 if i < remainder else 0) for i in range(child_count) if base + (1 if i < remainder else 0) > 0]
 
 
-def start_load_test(target_url, target_path, cases, users=5, spawn_rate=1, duration_seconds=30, headers=None):
+def _store_meta(update, run_id, meta):
+    """Saves extra run settings (see job_store.RUN_META_COLUMNS) as JSON text."""
+    fields = {k: json.dumps(v) for k, v in (meta or {}).items() if v is not None}
+    if fields:
+        update(run_id, **fields)
+
+
+def case_expectations(cases):
+    """{label: "accept" | "reject"} for the cases that carry an expectation,
+    or None when none do (older clients, website runs)."""
+    found = {c["label"]: c["expect"] for c in cases or []
+             if isinstance(c, dict) and c.get("expect") in ("accept", "reject")}
+    return found or None
+
+
+def start_load_test(target_url, target_path, cases, users=5, spawn_rate=1, duration_seconds=30, headers=None,
+                    meta=None):
     """Starts a single API load test job. For large user counts, transparently
-    splits into multiple child jobs distributed across workers — see
-    start_split_load_test. Returns (id, is_group)."""
+    splits into child jobs: parallel Locust processes on this host — see
+    start_split_load_test. meta: extra run settings stored with the run
+    (e.g. {"case_expectations": {...}}). Returns (id, is_group)."""
     if users > SPLIT_THRESHOLD:
         group_id = start_split_load_test(target_url, target_path, cases, users, spawn_rate, duration_seconds,
-                                         headers=headers)
+                                         headers=headers, meta=meta)
         return group_id, True
 
     job_id = str(uuid.uuid4())
     create_job(job_id, target_url, users, spawn_rate, duration_seconds, header_names=header_names(headers))
+    _store_meta(update_job, job_id, meta)
     _dispatch_single("api", job_id, target_url, users, spawn_rate, duration_seconds,
                       target_path=target_path, cases=cases, headers=headers)
     return job_id, False
 
 
-def start_website_load_test(target_url, paths, users=5, spawn_rate=1, duration_seconds=30, headers=None):
+def start_website_load_test(target_url, paths, users=5, spawn_rate=1, duration_seconds=30, headers=None,
+                            meta=None):
     if users > SPLIT_THRESHOLD:
         group_id = start_split_website_load_test(target_url, paths, users, spawn_rate, duration_seconds,
-                                                 headers=headers)
+                                                 headers=headers, meta=meta)
         return group_id, True
 
     job_id = str(uuid.uuid4())
     create_job(job_id, target_url, users, spawn_rate, duration_seconds, header_names=header_names(headers))
+    _store_meta(update_job, job_id, meta)
     _dispatch_single("website", job_id, target_url, users, spawn_rate, duration_seconds, paths=paths,
                      headers=headers)
     return job_id, False
 
 
-def start_split_load_test(target_url, target_path, cases, users, spawn_rate, duration_seconds, headers=None):
+def start_split_load_test(target_url, target_path, cases, users, spawn_rate, duration_seconds, headers=None,
+                          meta=None):
     per_child_users = _split_users(users)
     group_id = str(uuid.uuid4())
     names = header_names(headers)
     create_job_group(group_id, target_url, "api", users, spawn_rate, duration_seconds, len(per_child_users),
                      header_names=names)
+    _store_meta(update_job_group, group_id, meta)
 
     for child_users in per_child_users:
         job_id = str(uuid.uuid4())
         create_job(job_id, target_url, child_users, spawn_rate, duration_seconds, group_id=group_id,
                    header_names=names)
+        _store_meta(update_job, job_id, meta)
         _dispatch_single("api", job_id, target_url, child_users, spawn_rate, duration_seconds,
                           target_path=target_path, cases=cases, headers=headers)
 
     return group_id
 
 
-def start_split_website_load_test(target_url, paths, users, spawn_rate, duration_seconds, headers=None):
+def start_split_website_load_test(target_url, paths, users, spawn_rate, duration_seconds, headers=None,
+                                  meta=None):
     per_child_users = _split_users(users)
     group_id = str(uuid.uuid4())
     names = header_names(headers)
     create_job_group(group_id, target_url, "website", users, spawn_rate, duration_seconds, len(per_child_users),
                      header_names=names)
+    _store_meta(update_job_group, group_id, meta)
 
     for child_users in per_child_users:
         job_id = str(uuid.uuid4())
         create_job(job_id, target_url, child_users, spawn_rate, duration_seconds, group_id=group_id,
                    header_names=names)
+        _store_meta(update_job, job_id, meta)
         _dispatch_single("website", job_id, target_url, child_users, spawn_rate, duration_seconds, paths=paths,
                          headers=headers)
 
@@ -325,6 +440,8 @@ def get_group_status(group_id):
         overall = "failed"
     elif any(s == "timeout" for s in statuses):
         overall = "timeout"
+    elif any(s == "interrupted" for s in statuses):
+        overall = "interrupted"
     elif all(s == "completed" for s in statuses):
         overall = "completed"
     elif all(s in ("completed", "cancelled") for s in statuses):
@@ -357,8 +474,25 @@ def get_group_status(group_id):
         result["aggregated_stats_csv"] = group.get("aggregated_stats_csv")
         result["aggregated_failures_csv"] = group.get("aggregated_failures_csv")
         result["aggregated_history_csv"] = group.get("aggregated_history_csv")
+    elif overall != group.get("status"):
+        # Keep the stored status in step with the children, so lists that
+        # read the stored row (the run history) never show a stale state.
+        update_job_group(group_id, status=overall)
 
     return result
+
+
+def active_run_count():
+    """How many load tests are queued or running, counted the way a user
+    sees them: a split group is one run, a capacity run is one run, and a
+    repeat series is one run (its current repeat is not counted again)."""
+    active = list_active_runs()
+    in_series = {run_id for _, run_ids in active["series"] for run_id in run_ids}
+    # Group rows are refreshed from their children first: a stored "running"
+    # may already be finished.
+    groups = [g for g in active["groups"] if g not in in_series and run_status(g) in ACTIVE_STATUSES]
+    jobs = [j for j in active["jobs"] if j not in in_series]
+    return len(active["series"]) + len(groups) + len(jobs)
 
 # ---- Repeat series ----------------------------------------------------------
 
@@ -420,3 +554,34 @@ def _run_series(series_id, repeat, start_one, sleep=time.sleep):
     else:
         update_series(series_id, status="failed",
                       error=f"repeat {len(statuses)} of {repeat} ended with status '{statuses[-1]}'")
+
+
+# ---- Capacity runs ("Find capacity") ------------------------------------------
+
+def start_capacity_test(job_type, target_url, plan, spawn_rate, slo, headers=None, target_path=None, cases=None,
+                        paths=None, meta=None):
+    """Starts a step-load capacity run (see analysis/capacity.py). Always ONE
+    job, never split: the steps and their per-step judgement need a single
+    Locust process. Runs locally only (refused in queue mode by the API)."""
+    job_id = str(uuid.uuid4())
+    create_job(job_id, target_url, plan["max_users"], spawn_rate, plan["total_seconds"],
+               header_names=header_names(headers))
+    _store_meta(update_job, job_id, meta)
+    step_plan = {
+        "steps": plan["steps"],
+        "step_duration_seconds": plan["step_duration_seconds"],
+        "spawn_rate": spawn_rate,
+        "slo": slo or {},
+        "early_stop": plan["early_stop"],
+    }
+    # A few seconds beyond the plan, so the shape (not --run-time) ends the
+    # test and records the last step.
+    duration = plan["total_seconds"] + 5
+    if job_type == "api":
+        args = (job_id, target_url, target_path, cases, plan["max_users"], spawn_rate, duration, headers)
+        target = _run_api_job
+    else:
+        args = (job_id, target_url, paths, plan["max_users"], spawn_rate, duration, headers)
+        target = _run_website_job
+    threading.Thread(target=target, args=args, kwargs={"step_plan": step_plan}, daemon=True).start()
+    return job_id

@@ -2,13 +2,18 @@
 // "how did each request end?" counts, for the outcome strips.
 // Pure functions: no React, no fetching.
 
-const FAILURE_KINDS = ["rejected", "rate_limited", "server_error", "connection", "other"];
+// accepted_invalid_input / rejected_valid_input only appear in runs whose
+// cases carry an expected outcome; "rejected" (any 4xx) only in older runs.
+const FAILURE_KINDS = [
+  "accepted_invalid_input", "rejected_valid_input",
+  "rejected", "rate_limited", "server_error", "connection", "other",
+];
 
 function emptyCounts() {
   return Object.fromEntries(FAILURE_KINDS.map((k) => [k, 0]));
 }
 
-// { caseName: { rejected, rate_limited, server_error, connection, other } }
+// { caseName: { <kind>: count, ... } } for every kind in FAILURE_KINDS
 export function failuresByCase(failureSummary) {
   const byCase = {};
   for (const group of failureSummary || []) {

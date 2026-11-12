@@ -135,7 +135,9 @@ function LineChart({ title, points, series, xMax, hoverIndex, onHover, showXAxis
   );
 }
 
-export default function Timeline({ historyCsv }) {
+// approximate: the history was merged from a split run's parallel Locust
+// processes, so its p95 line is an approximation.
+export default function Timeline({ historyCsv, approximate = false }) {
   const [hoverIndex, setHoverIndex] = useState(null);
   const [showTable, setShowTable] = useState(false);
   const points = toPoints(historyCsv);
@@ -181,7 +183,7 @@ export default function Timeline({ historyCsv }) {
         title="Response time (ms)"
         series={[
           { key: "avg", label: "Average so far", color: colors.series1 },
-          { key: "p95", label: "p95 (last few seconds)", color: colors.series2 },
+          { key: "p95", label: approximate ? "≈ p95 (merged, approximate)" : "p95 (last few seconds)", color: colors.series2 },
         ]}
         showXAxis
         {...shared}
