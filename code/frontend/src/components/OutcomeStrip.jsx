@@ -4,12 +4,15 @@ import { outcomeSegments } from "../utils/outcomes";
 // A segmented bar showing how requests ended: passed / 4xx / 429 / 5xx /
 // connection. Segment widths are proportional to request counts.
 // size "large" adds a legend with counts; "small" is the per-row version.
-export default function OutcomeStrip({ requests, kindCounts, failureTotal, size = "small" }) {
+// passedLabel renames the green segment, e.g. "Handled correctly" for runs
+// whose cases carry an expected outcome (a correct 4xx is a pass there).
+export default function OutcomeStrip({ requests, kindCounts, failureTotal, size = "small", passedLabel }) {
   const segments = outcomeSegments(requests, kindCounts, failureTotal);
   const total = segments.reduce((s, x) => s + x.count, 0);
   const large = size === "large";
+  const labelOf = (key) => (key === "passed" && passedLabel ? passedLabel : outcome[key].label);
   const description = segments
-    .map((s) => `${outcome[s.key].label}: ${s.count}`)
+    .map((s) => `${labelOf(s.key)}: ${s.count}`)
     .join(", ");
 
   return (
@@ -43,7 +46,7 @@ export default function OutcomeStrip({ requests, kindCounts, failureTotal, size 
               style={{ display: "inline-flex", alignItems: "center", gap: space.sm, fontSize: type.meta, color: colors.textMuted }}
             >
               <span style={{ width: 8, height: 8, borderRadius: 2, background: outcome[s.key].fg }} />
-              {outcome[s.key].label}
+              {labelOf(s.key)}
               <span style={{ fontFamily: font.mono, color: colors.text }}>
                 {s.count.toLocaleString()}
               </span>

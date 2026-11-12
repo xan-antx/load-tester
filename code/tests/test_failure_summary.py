@@ -79,3 +79,13 @@ def test_empty_or_missing_input():
     assert summarize_failures(None) == []
     assert summarize_failures("") == []
     assert summarize_failures(HEADER) == []
+
+
+def test_401_and_403_are_explained_as_not_authorised():
+    text = _csv(
+        ("a", "HTTPError('401 Client Error: UNAUTHORIZED for url: a')", 5),
+        ("b", "HTTPError('403 Client Error: FORBIDDEN for url: b')", 2),
+    )
+    groups = _by_code(summarize_failures(text))
+    assert groups[401]["kind"] == "rejected" and groups[403]["kind"] == "rejected"
+    assert "not authorised" in groups[401]["meaning"]

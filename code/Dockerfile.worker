@@ -1,6 +1,19 @@
 FROM python:3.12-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
 WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
+
+# Queue mode is NOT DEPLOYED (future work); this image is not built by CI.
+# The SQS worker is a plain polling loop, not a web server, so it does not
+# need gunicorn. It runs as an unprivileged user like the API image.
+RUN useradd --create-home --uid 10001 appuser \
+    && mkdir -p /data /app/load_test_results \
+    && chown -R appuser:appuser /app /data
+USER appuser
+
 CMD ["python", "-u", "worker.py"]

@@ -1,0 +1,43 @@
+# Performance gate run by GitHub Actions (.github/workflows/ci.yml) against the
+# local mock target. Short and strict: it must pass on a healthy build and fail
+# when something regresses.
+#
+# The mock has three deliberate bugs (two inputs crash it with a 500, one
+# over-long username is wrongly accepted). They are known and demonstrated
+# elsewhere, so they are excluded here: the gate exists to catch NEW crashes,
+# NEW validation gaps and slowdowns.
+
+api: http://127.0.0.1:5000
+
+target:
+  url: http://127.0.0.1:8000/api/login
+  i_own_target: true
+
+sample:
+  username: demo
+  password: demo123
+  expiresInMins: 30
+
+cases:
+  include: all
+  exclude:
+    - wrong_type_expiresInMins      # known bug: 500
+    - very_large_expiresInMins      # known bug: 500
+    - very_long_string_username     # known bug: accepted with 200
+  expect:
+    missing_expiresInMins: accept   # optional field: accepting it is correct
+    null_expiresInMins: accept
+
+load:
+  mode: fixed
+  users: 10          # ~7 requests/s, well under the mock's 40/s rate limit
+  spawn_rate: 10
+  duration_seconds: 25
+
+slo:
+  p95_ms: 500
+  max_server_error_rate_pct: 1
+  max_unexpected_outcome_rate_pct: 1
+
+output:
+  dir: perf-results

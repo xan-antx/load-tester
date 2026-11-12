@@ -1,0 +1,52 @@
+# Example config for the command-line runner:
+#     python cli.py run --config loadtest.example.yml
+# Any value can be overridden on the command line, e.g. --users 30 --duration 20.
+# Exit code: 0 = SLO passed, 1 = SLO failed, 2 = error.
+
+# Backend base URL (or --api, or the ELEVATE_API environment variable).
+api: http://localhost:5000
+
+target:
+  url: http://127.0.0.1:8000/api/login   # the local mock target (scripts/mock_target.py)
+  # Required: you own this target or have permission to load-test it.
+  i_own_target: true
+  # Optional request headers, e.g. for an API that needs a token. Their values
+  # are sent to the backend for this run only and are never written to the
+  # output files.
+  headers: {}
+
+# A valid request body; edge cases are generated from it.
+sample:
+  username: demo
+  password: demo123
+  expiresInMins: 30
+
+cases:
+  include: all            # or a list of case labels
+  exclude: []             # labels to leave out
+  expect:                 # override a case's expected answer (accept = 2xx, reject = 4xx)
+    missing_expiresInMins: accept   # the mock treats expiresInMins as optional
+    null_expiresInMins: accept
+
+load:
+  mode: fixed             # fixed | capacity
+  users: 15
+  spawn_rate: 15
+  duration_seconds: 30
+
+# Used when load.mode is capacity (see docs/features.md, "Capacity finder").
+capacity:
+  start_users: 20
+  step_users: 20
+  step_duration_seconds: 12
+  max_users: 200
+  early_stop: true
+  min_users: 60           # exit 0 only if at least this many users were sustained
+
+slo:
+  p95_ms: 500
+  max_server_error_rate_pct: 1
+  max_unexpected_outcome_rate_pct: 5
+
+output:
+  dir: loadtest-results

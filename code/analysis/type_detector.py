@@ -6,16 +6,47 @@ API_PATH_HINTS = ("/api/", "/v1/", "/v2/", "/graphql", "/rest/")
 NON_PAGE_EXTENSIONS = (".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".pdf", ".css", ".js", ".xml", ".ico")
 
 
-def detect_type(url: str, headers: dict) -> dict:
+WRITE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
+
+
+def _attempt_signals(attempts):
+    """Signals from every response the reachability probe got (HEAD, GET,
+    OPTIONS). Error pages and OPTIONS replies are usually HTML or empty
+    whatever the resource is, so HTML only counts when a HEAD/GET actually
+    returned a page; JSON counts from any reply (APIs answer errors in JSON)."""
+    signals = []
+    if any("application/json" in a["content_type"] for a in attempts):
+        signals.append(("content_type_json", "api", 0.8))
+    elif any("text/html" in a["content_type"] and a["method"] in ("HEAD", "GET")
+             and 200 <= (a["status_code"] or 0) < 400 for a in attempts):
+        signals.append(("content_type_html", "website", 0.7))
+
+    allowed = set()
+    for a in attempts:
+        allowed |= {m.strip().upper() for m in (a.get("allow") or "").split(",") if m.strip()}
+    if allowed and "GET" not in allowed and allowed & WRITE_METHODS:
+        # A resource that accepts POST/PUT/... but not GET is an endpoint,
+        # not a page.
+        signals.append(("write_only_methods", "api", 0.8))
+    if any(a["method"] in ("HEAD", "GET") and a["status_code"] == 405 for a in attempts):
+        signals.append(("get_not_allowed", "api", 0.6))
+    return signals
+
+
+def detect_type(url: str, headers: dict, attempts: list = None) -> dict:
+    """attempts: the probe's responses (sanity_check "attempts"); without
+    them only the final response's Content-Type is used, as before."""
     content_type = headers.get("Content-Type", "").lower()
     path = urlparse(url).path.lower()
 
-    signals = []
-
-    if "application/json" in content_type:
-        signals.append(("content_type_json", "api", 0.8))
-    elif "text/html" in content_type:
-        signals.append(("content_type_html", "website", 0.7))
+    if attempts:
+        signals = _attempt_signals(attempts)
+    else:
+        signals = []
+        if "application/json" in content_type:
+            signals.append(("content_type_json", "api", 0.8))
+        elif "text/html" in content_type:
+            signals.append(("content_type_html", "website", 0.7))
 
     if any(hint in path for hint in API_PATH_HINTS):
         signals.append(("path_hint", "api", 0.6))

@@ -19,6 +19,16 @@ function table(headers, rows) {
   ].join("\n");
 }
 
+// Plain-English meaning of each outcome category (runs with expectations).
+const OUTCOME_EXPLANATIONS = [
+  ["handled_correctly", "Handled correctly", "the answer matched the expectation: 2xx for valid input, a 4xx rejection for invalid input"],
+  ["accepted_invalid_input", "Accepted invalid input", "2xx for a request that should have been rejected: a validation bug (or an optional field)"],
+  ["rejected_valid_input", "Rejected valid input", "4xx for a request that should have succeeded"],
+  ["server_error", "Server error", "5xx: the server failed, whatever was expected"],
+  ["rate_limited", "Rate limited", "429: refused because of load"],
+  ["connection", "Connection failure", "no HTTP answer at all"],
+];
+
 export function buildMarkdownReport(run, regressionInfo) {
   const rows = parseStatsCsv(run.aggregated_stats_csv || run.stats_csv);
   const cases = rows.filter((r) => r.Name && r.Name !== "Aggregated");
@@ -41,14 +51,16 @@ export function buildMarkdownReport(run, regressionInfo) {
     `- URL: ${run.target_url}`,
     `- Run id: ${id}`,
     `- Started: ${formatTime(run.created_at)}`,
-    `- Status: ${run.status}`,
+    `- Status: ${run.status === "cancelled" ? "cancelled — partial results" : run.status}`,
     "",
     "## Configuration",
     "",
     `- Users: ${run.users}`,
     `- Spawn rate: ${run.spawn_rate} users/s`,
     `- Duration: ${run.duration_seconds} s`,
-    `- Workers: ${isGroup ? `${run.child_jobs.length} (split run)` : "1"}`,
+    `- Locust processes: ${isGroup ? `${run.child_jobs.length}, in parallel on the same host (split run)` : "1"}`,
+    // Header names only; the values are never available to the browser report.
+    `- Request headers: ${run.header_names?.length ? `${run.header_names.join(", ")} (values not included)` : "none"}`,
     "",
   ];
 
@@ -62,6 +74,13 @@ export function buildMarkdownReport(run, regressionInfo) {
           ["Total requests", total["Request Count"]],
           ["Failures", total["Failure Count"]],
           ["Failure rate", `${num(rate(total), 1)}%`],
+          ["Problem rate (5xx, 429, connection)", run.problem_rate == null ? "—" : `${num(run.problem_rate, 1)}%`],
+          ...(run.outcome_summary
+            ? [
+                ["Handled correctly", `${num(run.outcome_summary.handled_correctly_pct, 1)}%`],
+                ["Unexpected answers (accepted invalid + rejected valid)", `${num(run.outcome_summary.unexpected_outcome_rate_pct, 1)}%`],
+              ]
+            : []),
           ["Average response", `${num(total["Average Response Time"])} ms`],
           ["p95 response", `${approx}${num(total["95%"])} ms`],
           ["Requests per second", num(total["Requests/s"], 2)],
@@ -69,9 +88,78 @@ export function buildMarkdownReport(run, regressionInfo) {
       ),
       "",
     );
+    lines.push(
+      "Failure rate counts every non-2xx answer, including 4xx rejections of invalid input. " +
+        "Problem rate counts only server errors, rate limiting and connection failures.",
+      "",
+    );
     if (isGroup) {
-      lines.push("≈ p95 for split runs is approximate (a weighted average of each worker's p95).", "");
+      lines.push("≈ p95 for split runs is approximate: a request-weighted average of each Locust process's p95, not a true percentile of all requests.", "");
     }
+  }
+
+  const capacity = run.capacity;
+  if (capacity) {
+    const plan = run.capacity_plan || {};
+    lines.push(
+      "## Capacity",
+      "",
+      `**${capacity.headline}.**`,
+      "",
+      capacity.breaking_point_users != null
+        ? `Breaking point: ${capacity.breaking_point_users} users (${capacity.breaking_reason}).`
+        : `No breaking point within ${capacity.tested_up_to_users ?? "—"} users.`,
+      "",
+      `Steps of ${plan.step_users} users every ${plan.step_duration_seconds} s, from ${plan.start_users} to ${plan.max_users} users; judged on ${capacity.criteria}.${capacity.stopped_early ? " Stopped after the first failing step." : ""}`,
+      "",
+      table(
+        ["Users", "Req/s", "p95 ms", "Avg ms", "Server errors %", "Unexpected %", "429 %", "Verdict"],
+        capacity.steps.map((s) => [
+          s.planned_users,
+          num(s.rps, 1),
+          num(s.p95_ms),
+          num(s.avg_ms),
+          s.server_error_rate_pct == null ? "—" : num(s.server_error_rate_pct, 1),
+          s.unexpected_outcome_rate_pct == null ? "—" : num(s.unexpected_outcome_rate_pct, 1),
+          s.rate_limited_pct == null ? "—" : num(s.rate_limited_pct, 1),
+          s.complete ? s.verdict || "—" : "partial",
+        ])
+      ),
+      "",
+    );
+  }
+
+  const verdict = run.slo_verdict;
+  if (verdict) {
+    lines.push(
+      `## SLO verdict: ${verdict.verdict || "not measured"}`,
+      "",
+      table(
+        ["Threshold", "Target", "Actual", "Result"],
+        verdict.checks.map((c) => [
+          c.label,
+          `${c.comparison === "<=" ? "≤" : "≥"} ${c.target} ${c.unit}`,
+          c.actual == null ? "—" : `${c.key === "p95_ms" ? approx : ""}${c.actual} ${c.unit}`,
+          c.passed === true ? "met" : c.passed === false ? "MISSED" : "not measured",
+        ])
+      ),
+      "",
+    );
+  }
+
+  const outcomes = run.outcome_summary;
+  if (outcomes) {
+    lines.push(
+      "## Expected vs actual outcomes",
+      "",
+      "Every case had an expected answer. A request counts as a failure only when the answer did not match.",
+      "",
+      table(
+        ["Outcome", "Requests", "Meaning"],
+        OUTCOME_EXPLANATIONS.map(([key, label, meaning]) => [label, outcomes[key] ?? 0, meaning])
+      ),
+      "",
+    );
   }
 
   const failureTypes = run.failure_summary || [];
@@ -98,9 +186,10 @@ export function buildMarkdownReport(run, regressionInfo) {
       "## Per-case results",
       "",
       table(
-        ["Case", "Requests", "Failures", "Fail %", "Avg ms", "p95 ms"],
+        ["Case", "Expects", "Requests", "Failures", "Fail %", "Avg ms", "p95 ms"],
         sorted.map((r) => [
           r.Name,
+          { accept: "2xx", reject: "4xx" }[(run.case_expectations || {})[r.Name]] || "—",
           r["Request Count"],
           r["Failure Count"],
           num(rate(r), 1),

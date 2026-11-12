@@ -1,6 +1,6 @@
-# Project Journal — Krish Agrawal
+# Project Journal — Vivek Pandey
 
-UCS503 Software Engineering Project (2026–27 ODD) · Team Elevate · Elevate Load Tester
+UCS503 Software Engineering Project (2026–27 ODD) · Elevate Load Tester
 
 ---
 

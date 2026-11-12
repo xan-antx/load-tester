@@ -38,6 +38,14 @@ export default function AnalyzeSummary({ data, showRaw, onToggleRaw }) {
           </div>
         ))}
       </div>
+      {sanity.method_not_allowed && (
+        <p style={{ color: colors.textMuted, fontSize: type.meta, margin: `${space.sm}px 0 0` }}>
+          The server answered, but refused HEAD and GET ({sanity.status_code})
+          {sanity.allowed_methods ? `; it allows ${sanity.allowed_methods}` : ""}. That is normal for an
+          endpoint that only accepts POST. The check only uses read-only requests (HEAD, GET, OPTIONS), so it
+          never changes anything on the server.
+        </p>
+      )}
       {sanity.error && (
         <div style={{ margin: `${space.sm}px 0 0` }}>
           <p role="alert" style={{ color: colors.danger, fontSize: type.body, margin: 0 }}>

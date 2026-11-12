@@ -1,0 +1,12 @@
+# Keep the backend image small and free of local state.
+.venv/
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+frontend/
+load_test_results/
+*.db
+.env
+BUILD_LOG.md
+UPGRADE_PROGRESS.md

@@ -11,7 +11,7 @@ target (`scripts/mock_target.py`) on port 8000. The full flow was run end to end
 2. Generate edge cases from `{"username":"demo","password":"demo123","expiresInMins":30}`.
 3. Add a custom case `admin_user`.
 4. Run 15 users (15 per second, 30 s) and mark it as the baseline.
-5. Run 150 users (20 per second, 30 s). This split across 3 workers and showed 3 regressions against the baseline.
+5. Run 150 users (20 per second, 30 s). This was split into 3 parallel Locust processes on the same host and showed 3 regressions against the baseline.
 6. Download the Markdown report.
 7. Compare 3 runs.
 8. Analyze `https://example.com` and run a website test (2 users, 5 s).
@@ -237,9 +237,9 @@ Every issue has an id (U1, A1 …) that matches the table at the end.
 | U9 | H1 Visibility of system status | Medium | Progress panel appeared off-screen after starting a test. | Fixed: the page scrolls to "Run and results" when a run starts. |
 | U10 | H5 Error prevention | Medium | Out-of-range numbers silently changed. | Fixed: a note under the field, such as "Set to 1000, the maximum". |
 | U11 | H5 Error prevention | Medium | API start button clickable while the start requests were in flight. | Fixed: it shows "Starting…" and is disabled until the run starts or fails. |
-| U12 | H2 Real-world match | Medium | "Failure rate" counts expected 400 rejections of invalid inputs as failures. | Deferred: changing what "failure" means affects results, comparison, baseline regressions, the report and the backend's numbers, so it needs a team decision. The summary sentences already explain the 400s. |
-| U13 | H3 User control | Medium | No way to stop a running test. | Deferred: there is no backend endpoint to stop a run, and backend changes were out of scope. |
-| U17 | H9 Recover from errors | Medium | If the backend goes down mid-run, the status stays "Running" forever. | Deferred: the fix belongs in `pollStatus()`, which must not be changed. The header light turns red within 15 s, which partly covers it. |
+| U12 | H2 Real-world match | Medium | "Failure rate" counts expected 400 rejections of invalid inputs as failures. | Fixed later (extension Tier 1.1): the failure rate is kept as it is, and a separate "Problem rate" (5xx, 429 and connection failures only) now sits next to it, in the comparison and in the report. |
+| U13 | H3 User control | Medium | No way to stop a running test. | Fixed later (extension Tier 1.2): "Stop test" with a confirm step and `POST /api/cancel/<id>`; partial results are kept. |
+| U17 | H9 Recover from errors | Medium | If the backend goes down mid-run, the status stays "Running" forever. | Fixed later (extension Tier 1.3): a "Lost connection — retrying" banner, then "Status unknown" with "Check again" after about 30 s. |
 | U14 | H4 Consistency | Low | "Run Website Load Test" / "Starting..." didn't match the other buttons. | Fixed: "Run website load test" / "Starting…". |
 | U15 | H2 Real-world match | Low | "Spawn rate" is jargon. | Fixed: the label is now "New users per second (spawn rate), 1 to 20". |
 | U16 | H6 Recognition rather than recall | Low | Run history shows only the host, not the path. | Deferred: the backend stores and returns only the host. |

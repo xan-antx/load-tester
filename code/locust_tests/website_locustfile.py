@@ -4,6 +4,9 @@ import random
 from locust import HttpUser, task, between
 
 PATHS_FILE = os.environ["LOCUST_PATHS_FILE"]
+# Optional request headers, passed only via the environment (see
+# dynamic_locustfile.py).
+HEADERS = json.loads(os.environ.get("LOCUST_HEADERS") or "{}")
 
 with open(PATHS_FILE) as f:
     PATHS = json.load(f)
@@ -15,4 +18,4 @@ class WebsiteUser(HttpUser):
     @task
     def visit_page(self):
         path = random.choice(PATHS)
-        self.client.get(path, name=path)
+        self.client.get(path, name=path, headers=HEADERS)

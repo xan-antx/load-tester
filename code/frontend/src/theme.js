@@ -27,11 +27,13 @@ export const colors = {
   info: "#58A6FF",         // 429 rate limited
   danger: "#F85149",       // 5xx server error / errors
   connection: "#8B949E",   // no response at all
+  validation: "#C297FF",   // accepted invalid input (a validation bug)
   successSoft: "rgba(63, 185, 80, 0.12)",
   warningSoft: "rgba(210, 153, 34, 0.13)",
   infoSoft: "rgba(88, 166, 255, 0.12)",
   dangerSoft: "rgba(248, 81, 73, 0.12)",
   mutedSoft: "rgba(139, 148, 158, 0.12)",
+  validationSoft: "rgba(194, 151, 255, 0.12)",
 
   // Chart series: hues deliberately outside the status set (so a line never
   // reads as "4xx" or "429"), validated for colour-blind separation on the
@@ -49,6 +51,9 @@ export const colors = {
 // (outcome strips, failure cards, findings). Keys match failure_summary.kind.
 export const outcome = {
   passed: { label: "Passed", fg: colors.success, soft: colors.successSoft },
+  // Runs with expected outcomes: the answer contradicted the expectation.
+  accepted_invalid_input: { label: "Accepted invalid input", fg: colors.validation, soft: colors.validationSoft },
+  rejected_valid_input: { label: "Rejected valid input", fg: colors.warning, soft: colors.warningSoft },
   rejected: { label: "Rejected (4xx)", fg: colors.warning, soft: colors.warningSoft },
   rate_limited: { label: "Rate limited (429)", fg: colors.info, soft: colors.infoSoft },
   server_error: { label: "Server error (5xx)", fg: colors.danger, soft: colors.dangerSoft },
@@ -56,7 +61,10 @@ export const outcome = {
   other: { label: "Other status", fg: colors.connection, soft: colors.mutedSoft },
 };
 
-export const OUTCOME_ORDER = ["passed", "rejected", "rate_limited", "server_error", "connection", "other"];
+export const OUTCOME_ORDER = [
+  "passed", "accepted_invalid_input", "rejected_valid_input",
+  "rejected", "rate_limited", "server_error", "connection", "other",
+];
 
 export const radius = {
   sm: 4,   // chips, small controls

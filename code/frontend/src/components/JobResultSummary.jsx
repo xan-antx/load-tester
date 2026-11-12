@@ -9,6 +9,8 @@ import { deriveFindings } from "../utils/findings";
 import Timeline from "./Timeline";
 import OutcomeStrip from "./OutcomeStrip";
 import Findings from "./Findings";
+import SloVerdict from "./SloVerdict";
+import CapacityResult from "./CapacityResult";
 import { colors, font, outcome, space, radius, type } from "../theme";
 
 function rowStats(r) {
@@ -33,6 +35,7 @@ function KeyFigure({ label, value, note, title }) {
 // The stats CSV only carries the case label, so the category is derived
 // from the label prefixes used by the backend's edge-case generator.
 const CATEGORY_ORDER = [
+  "valid_input",
   "missing_field",
   "null_value",
   "type_mismatch",
@@ -42,6 +45,7 @@ const CATEGORY_ORDER = [
 ];
 
 export const CATEGORY_LABELS = {
+  valid_input: "Valid sample",
   missing_field: "Missing field",
   null_value: "Null value",
   type_mismatch: "Type mismatch",
@@ -52,6 +56,7 @@ export const CATEGORY_LABELS = {
 
 function categoryOf(name) {
   if (!name) return "other";
+  if (name === "valid_sample") return "valid_input";
   if (name.startsWith("missing_")) return "missing_field";
   if (name.startsWith("null_")) return "null_value";
   if (name.startsWith("wrong_type_")) return "type_mismatch";
@@ -88,9 +93,31 @@ function rowValue(r, key) {
   }
 }
 
+const PROBLEM_RATE_NOTE =
+  "Problem rate counts only server errors (5xx), rate limiting (429) and connection failures. " +
+  "Unlike the failure rate, it leaves out 4xx answers, which are correct when an API rejects invalid input.";
+
+const HANDLED_NOTE =
+  "Every case had an expected answer: 2xx for valid input, a 4xx rejection for invalid input. " +
+  "A request is handled correctly when the API answered as expected; a 429, a 5xx or no answer never is.";
+
+// The expected answer of one case, shown next to its name.
+function ExpectTag({ expect }) {
+  if (!expect) return null;
+  const accept = expect === "accept";
+  return (
+    <span
+      title={accept ? "Valid input: a 2xx answer is correct" : "Invalid input: a 4xx rejection is correct"}
+      style={{ ...chipStyle, marginLeft: space.sm, color: accept ? colors.success : colors.textMuted }}
+    >
+      expects {accept ? "2xx" : "4xx"}
+    </span>
+  );
+}
+
 const P95_APPROX_NOTE =
-  "Approximate: this run was split across several workers, and percentiles cannot be " +
-  "merged exactly — the value is a request-weighted average of each worker's p95.";
+  "Approximate: this run ran as several Locust processes in parallel on the same host, and " +
+  "percentiles cannot be merged exactly — the value is a request-weighted average of each process's p95.";
 
 // Locust writes "N/A" for percentiles of rows with no data.
 function formatMs(value) {
@@ -121,10 +148,20 @@ export default function JobResultSummary({ data, showRaw, onToggleRaw, regressio
     data.job_type === "website" ||
     (nonAggregated.length > 0 && nonAggregated.every((r) => r.Name.startsWith("/")));
   const activeView = isWebsite ? "flat" : view;
-  const columns = COLUMNS.map((c) =>
-    c.key === "name" ? { ...c, label: isWebsite ? "Page" : "Edge case" } : c
-  );
+  const columns = COLUMNS.map((c) => {
+    if (c.key === "name") return { ...c, label: isWebsite ? "Page" : "Edge case" };
+    // With expected outcomes a "failure" is an unexpected answer.
+    if (c.key === "failures" && data.outcome_summary) return { ...c, label: "Unexpected" };
+    if (c.key === "rate" && data.outcome_summary) return { ...c, label: "Outcome / unexpected %" };
+    // Merged p95 of a split run is approximate: say so in the header too.
+    if (c.key === "p95" && isGroup) return { ...c, label: "≈ p95 ms" };
+    return c;
+  });
   const failureTypes = data.failure_summary || [];
+  // Set when the run's cases carried expected outcomes (accept / reject).
+  const outcomeSummary = data.outcome_summary || null;
+  const expectations = data.case_expectations || {};
+  const passedLabel = outcomeSummary ? "Handled correctly" : undefined;
   const caseOutcomes = failuresByCase(failureTypes);
 
   const sorted = [...nonAggregated].sort((a, b) => {
@@ -184,6 +221,7 @@ export default function JobResultSummary({ data, showRaw, onToggleRaw, regressio
           totalRequests: agg.requests,
           totalFailures: agg.failures,
           regressionInfo,
+          outcomeSummary,
         })
       : [];
 
@@ -202,7 +240,7 @@ export default function JobResultSummary({ data, showRaw, onToggleRaw, regressio
     <td style={tdStyle}>
       <div style={{ display: "flex", alignItems: "center", gap: space.sm }}>
         <div style={{ flex: 1 }}>
-          <OutcomeStrip requests={requests} kindCounts={kinds} failureTotal={failures} />
+          <OutcomeStrip requests={requests} kindCounts={kinds} failureTotal={failures} passedLabel={passedLabel} />
         </div>
         <span style={{ width: 40, textAlign: "right", color: failures === 0 ? colors.success : colors.text }}>
           {rate.toFixed(0)}%
@@ -215,7 +253,10 @@ export default function JobResultSummary({ data, showRaw, onToggleRaw, regressio
     const s = rowStats(r);
     return (
       <tr key={r.Name || i}>
-        <td style={{ ...tdStyle, whiteSpace: "nowrap" }}>{r.Name}</td>
+        <td style={{ ...tdStyle, whiteSpace: "nowrap" }}>
+          {r.Name}
+          <ExpectTag expect={expectations[r.Name]} />
+        </td>
         <td style={{ ...tdStyle, ...num }}>{s.requests}</td>
         <td style={{ ...tdStyle, ...num }}>{s.failures}</td>
         {outcomeCell(s.requests, caseOutcomes[r.Name], s.failures, s.rate)}
@@ -233,7 +274,7 @@ export default function JobResultSummary({ data, showRaw, onToggleRaw, regressio
 
   return (
     <div style={{ marginTop: space.lg }}>
-      {data.status === "failed" && data.error && (
+      {(data.status === "failed" || data.status === "timeout") && (
         <div
           role="alert"
           style={{
@@ -246,8 +287,52 @@ export default function JobResultSummary({ data, showRaw, onToggleRaw, regressio
             marginBottom: space.md,
           }}
         >
-          <strong style={{ color: colors.danger }}>The run failed.</strong> {data.error}
+          <strong style={{ color: colors.danger }}>
+            {data.status === "timeout" ? "The run timed out." : "The run failed."}
+          </strong>{" "}
+          {data.status === "timeout"
+            ? "Locust did not finish within the run's duration plus a minute, so it was stopped."
+            : !data.error && "No error message was recorded."}
+          {agg ? " The figures below are whatever was recorded." : " No statistics were recorded."}
+          {data.error && (
+            // Locust's error output (often a traceback): keep its line breaks.
+            <pre style={{ ...preStyle, maxHeight: 220, margin: `${space.sm}px 0 0`, color: colors.text }}>
+              {data.error}
+            </pre>
+          )}
         </div>
+      )}
+
+      {data.status === "interrupted" && (
+        <div
+          role="alert"
+          style={{
+            background: colors.warningSoft,
+            border: `1px solid ${colors.warning}`,
+            color: colors.text,
+            padding: space.md,
+            borderRadius: radius.md,
+            fontSize: type.body,
+            marginBottom: space.md,
+          }}
+        >
+          <strong style={{ color: colors.warning }}>Interrupted.</strong>{" "}
+          {data.error || "The backend stopped while this run was in progress, so it never finished."}
+          {agg ? " The figures below are whatever was recorded before that." : " No results were recorded."}
+        </div>
+      )}
+
+      {data.status === "cancelled" && (
+        <p role="status" style={{ margin: `0 0 ${space.md}px`, fontSize: type.body, color: colors.warning }}>
+          {agg
+            ? "Cancelled — partial results. The figures below cover only the part of the test that ran."
+            : "Cancelled — no results were recorded before the test was stopped."}
+        </p>
+      )}
+
+      <SloVerdict verdict={data.slo_verdict} approximate={isGroup} />
+      {data.mode === "capacity" && (
+        <CapacityResult capacity={data.capacity} plan={data.capacity_plan} slo={data.slo} />
       )}
 
       <Findings findings={findings} />
@@ -256,11 +341,28 @@ export default function JobResultSummary({ data, showRaw, onToggleRaw, regressio
         <>
           <div className="stat-row">
             <KeyFigure label="Requests" value={agg.requests.toLocaleString()} />
-            <KeyFigure
-              label="Failure rate"
-              value={`${agg.rate.toFixed(1)}%`}
-              note={`${agg.failures.toLocaleString()} of ${agg.requests.toLocaleString()}`}
-            />
+            {outcomeSummary ? (
+              <KeyFigure
+                label="Handled correctly"
+                value={`${outcomeSummary.handled_correctly_pct.toFixed(1)}%`}
+                note={`${outcomeSummary.handled_correctly.toLocaleString()} of ${agg.requests.toLocaleString()} as expected`}
+                title={HANDLED_NOTE}
+              />
+            ) : (
+              <KeyFigure
+                label="Failure rate"
+                value={`${agg.rate.toFixed(1)}%`}
+                note={`${agg.failures.toLocaleString()} of ${agg.requests.toLocaleString()}`}
+              />
+            )}
+            {data.problem_rate != null && (
+              <KeyFigure
+                label="Problem rate"
+                value={`${data.problem_rate.toFixed(1)}%`}
+                note="5xx, 429 and connection failures"
+                title={PROBLEM_RATE_NOTE}
+              />
+            )}
             <KeyFigure label="Avg response" value={`${Math.round(Number(aggregated["Average Response Time"]))} ms`} />
             <KeyFigure
               label="p95 response"
@@ -279,7 +381,19 @@ export default function JobResultSummary({ data, showRaw, onToggleRaw, regressio
             <div style={{ fontFamily: font.mono, fontSize: type.meta, color: colors.textMuted, marginBottom: space.sm }}>
               How the {agg.requests.toLocaleString()} requests ended
             </div>
-            <OutcomeStrip requests={agg.requests} kindCounts={runKinds} failureTotal={agg.failures} size="large" />
+            <OutcomeStrip
+              requests={agg.requests}
+              kindCounts={runKinds}
+              failureTotal={agg.failures}
+              size="large"
+              passedLabel={passedLabel}
+            />
+            {outcomeSummary && (
+              <p style={{ margin: `${space.sm}px 0 0`, fontSize: type.meta, color: colors.textMuted, maxWidth: "80ch" }}>
+                {HANDLED_NOTE} "Accepted invalid input" usually means missing validation; if the field is
+                optional, set that case to expect 2xx before the next run.
+              </p>
+            )}
           </div>
         </>
       )}
@@ -383,7 +497,7 @@ export default function JobResultSummary({ data, showRaw, onToggleRaw, regressio
         </div>
       )}
 
-      <Timeline historyCsv={data.aggregated_history_csv || data.history_csv} />
+      <Timeline historyCsv={data.aggregated_history_csv || data.history_csv} approximate={isGroup} />
 
       {(failureTypes.length > 0 || errorGroups.length > 0) && (
         <div style={{ ...subPanelStyle, marginTop: space.md }}>

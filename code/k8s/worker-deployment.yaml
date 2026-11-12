@@ -1,3 +1,5 @@
+# NOT DEPLOYED — future work. The SQS queue-mode worker; CI does not apply this
+# manifest and the API runs with USE_SQS=false. See code/RUNBOOK.md.
 apiVersion: apps/v1
 kind: Deployment
 metadata:

@@ -17,5 +17,28 @@ export default defineConfig([
       globals: globals.browser,
       parserOptions: { ecmaFeatures: { jsx: true } },
     },
+    rules: {
+      // Fast Refresh (a dev-server convenience) wants component files to
+      // export only components. These files deliberately share a few small
+      // constants and helpers with the components that use them; listing
+      // them keeps the rule on for everything else.
+      'react-refresh/only-export-components': ['error', {
+        allowExportNames: [
+          // Section.jsx: step states and shared styles
+          'STEP_STATES', 'labelStyle', 'inputStyle', 'subPanelStyle', 'preStyle',
+          'tableStyle', 'thStyle', 'tdStyle', 'chipStyle',
+          // JobResultSummary.jsx
+          'CATEGORY_LABELS',
+          // LoadTestConfig.jsx
+          'LIMITS', 'clampInt',
+          // RequestHeadersEditor.jsx
+          'headersObject',
+          // SloConfig.jsx
+          'SLO_FIELDS', 'DEFAULT_SLO', 'sloPayload',
+          // CapacityConfig.jsx
+          'CAPACITY_LIMITS', 'capacitySteps',
+        ],
+      }],
+    },
   },
 ])

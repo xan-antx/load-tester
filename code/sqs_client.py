@@ -1,3 +1,4 @@
+# AWS SQS client for queue mode. NOT DEPLOYED — future work (see worker.py).
 import os
 import json
 import boto3
