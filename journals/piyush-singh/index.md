@@ -1,6 +1,6 @@
-# Project Journal — Nikhil Khosla
+# Project Journal — Piyush Singh
 
-UCS503 Software Engineering Project (2026–27 ODD) · Team Elevate · Elevate Load Tester
+UCS503 Software Engineering Project (2026–27 ODD) · Elevate Load Tester
 
 ---
 
