@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import CompareView from "../components/CompareView";
 import { VerdictChip } from "../components/SloVerdict";
 import Icon from "../components/Icon";
@@ -66,6 +66,16 @@ export default function HistoryView({ history, onOpenRun, onMarkBaseline, liveRu
   const summaries = useRunSummaries(jobs);
   const [baselineBusy, setBaselineBusy] = useState(null);
   const [baselineError, setBaselineError] = useState(null);
+  const compareRef = useRef(null);
+
+  // The comparison renders below the run table, often off-screen: bring it
+  // into view (and focus it) when it arrives, so Compare visibly does something.
+  useEffect(() => {
+    if (!history.compareResult || !compareRef.current) return;
+    // Instant, not smooth: smooth scrolling is ignored in some embedded browsers.
+    compareRef.current.scrollIntoView({ block: "start" });
+    compareRef.current.focus({ preventScroll: true });
+  }, [history.compareResult]);
 
   const showMode = jobs.some((j) => j.mode === "capacity");
   const showVerdict = jobs.some((j) => j.slo_verdict);
@@ -198,7 +208,7 @@ export default function HistoryView({ history, onOpenRun, onMarkBaseline, liveRu
           </div>
 
           {history.compareResult?.jobs && (
-            <section className="block compare-result" aria-label="Comparison">
+            <section ref={compareRef} tabIndex={-1} className="block compare-result" aria-label="Comparison" style={{ outline: "none", scrollMarginTop: 16 }}>
               <CompareView
                 jobs={history.compareResult.jobs}
                 caseComparison={history.compareResult.case_comparison}

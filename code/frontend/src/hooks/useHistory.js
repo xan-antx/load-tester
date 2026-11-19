@@ -36,6 +36,9 @@ export default function useHistory() {
   }, [refresh]);
 
   function toggleCompare(id) {
+    // A comparison of a different selection is stale: drop it.
+    setCompareResult(null);
+    setCompareError(null);
     setCompareIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : prev.length < 4 ? [...prev, id] : prev));
   }
   // Moves a picked run to the front: the reference run.
