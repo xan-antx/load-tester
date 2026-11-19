@@ -6,6 +6,18 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev", "--prefix", "code/frontend"],
       "port": 5173
+    },
+    {
+      "name": "backend-dev",
+      "runtimeExecutable": "powershell",
+      "runtimeArgs": ["-NoProfile", "-Command", "$env:PORT='5001'; Set-Location code; python app.py"],
+      "port": 5001
+    },
+    {
+      "name": "mock-dev",
+      "runtimeExecutable": "powershell",
+      "runtimeArgs": ["-NoProfile", "-Command", "$env:MOCK_PORT='8001'; Set-Location code; python scripts/mock_target.py"],
+      "port": 8001
     }
   ]
 }

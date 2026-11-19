@@ -16,8 +16,7 @@ export function StepState({ state }) {
         display: "inline-flex",
         alignItems: "center",
         gap: space.sm,
-        fontFamily: font.mono,
-        fontSize: type.meta,
+        fontSize: type.body,
         color: s.color,
         whiteSpace: "nowrap",
       }}
@@ -30,7 +29,7 @@ export function StepState({ state }) {
 
 // One workflow step: number, title, a one-line explanation and its state.
 // The current step gets a stronger border so it stands out from the rest.
-export default function Section({ id, step, title, description, state, children }) {
+export default function Section({ id, title, description, state, children }) {
   return (
     <section
       id={id}
@@ -52,11 +51,6 @@ export default function Section({ id, step, title, description, state, children 
           borderBottom: `1px solid ${colors.borderSubtle}`,
         }}
       >
-        {step != null && (
-          <span style={{ fontFamily: font.mono, fontSize: type.meta, color: colors.textMuted }}>
-            {String(step).padStart(2, "0")}
-          </span>
-        )}
         <div style={{ flex: 1, minWidth: 0 }}>
           <h2
             id={id ? `${id}-title` : undefined}
@@ -65,7 +59,7 @@ export default function Section({ id, step, title, description, state, children 
             {title}
           </h2>
           {description && (
-            <p style={{ margin: `${space.xs}px 0 0`, fontSize: type.meta, color: colors.textMuted, maxWidth: "75ch" }}>
+            <p style={{ margin: `${space.xs}px 0 0`, fontSize: type.body, color: colors.textMuted, maxWidth: "75ch" }}>
               {description}
             </p>
           )}
@@ -84,8 +78,9 @@ export default function Section({ id, step, title, description, state, children 
 
 export const labelStyle = {
   display: "block",
-  fontFamily: font.mono,
-  fontSize: type.meta,
+  fontFamily: font.sans,
+  fontSize: type.body,
+  fontWeight: 500,
   color: colors.textMuted,
   marginBottom: space.xs,
 };
@@ -133,9 +128,8 @@ export const tableStyle = {
 export const thStyle = {
   padding: `${space.sm}px ${space.md}px`,
   color: colors.textMuted,
-  fontFamily: font.mono,
-  fontWeight: 400,
-  fontSize: type.meta,
+  fontWeight: 500,
+  fontSize: type.body,
   textAlign: "left",
   whiteSpace: "nowrap",
   borderBottom: `1px solid ${colors.border}`,

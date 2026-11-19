@@ -19,7 +19,7 @@ export function clampInt(value, { min, max }) {
 
 // The text is kept locally while typing (so the field can be empty for a
 // moment); the parent only receives a clamped integer on blur or Enter.
-export function NumberField({ label, value, limits, onCommit }) {
+export function NumberField({ label, value, limits, onCommit, compact = false }) {
   const [text, setText] = useState(String(value));
   // Set when the typed value had to be changed, so the user sees why.
   const [note, setNote] = useState(null);
@@ -47,7 +47,7 @@ export function NumberField({ label, value, limits, onCommit }) {
   }
 
   return (
-    <div style={{ flex: "1 1 160px" }}>
+    <div style={{ flex: compact ? "1 1 90px" : "1 1 160px", minWidth: 0 }}>
       <label>
         <span style={labelStyle}>{label}</span>
         <input
@@ -64,7 +64,7 @@ export function NumberField({ label, value, limits, onCommit }) {
           style={inputStyle}
         />
       </label>
-      <span id={noteId} role="status" style={{ display: "block", minHeight: 18, fontSize: type.meta, color: colors.warning }}>
+      <span id={noteId} role="status" style={{ display: "block", minHeight: note ? 18 : 0, fontSize: type.meta, color: colors.textMuted }}>
         {note}
       </span>
     </div>

@@ -32,7 +32,7 @@ export default function SeriesSummary({ data }) {
       <p style={{ margin: `0 0 ${space.md}px`, fontSize: type.meta, color: colors.textMuted, maxWidth: "75ch" }}>
         The same test was set to run {data.repeat_count} times, one after another ({data.users} users,{" "}
         {data.duration_seconds} s each). {completed < data.repeat_count && (
-          <span style={{ color: colors.warning }}>
+          <span style={{ color: colors.text }}>
             Only {completed} of {data.repeat_count} repeats completed
             {data.status === "cancelled" ? " before the series was stopped" : ""}.{" "}
           </span>
@@ -94,7 +94,7 @@ export default function SeriesSummary({ data }) {
                       <td style={tdStyle}>{c.case}</td>
                       <td style={{ ...tdStyle, textAlign: "right" }}>{fmt(c.mean_rate, 1)}</td>
                       <td
-                        style={{ ...tdStyle, textAlign: "right", color: wide ? colors.warning : colors.textMuted }}
+                        style={{ ...tdStyle, textAlign: "right", color: wide ? colors.text : colors.textMuted }}
                         title={wide ? "Varies by 10 points or more between repeats" : undefined}
                       >
                         {fmt(c.min_rate, 0)} – {fmt(c.max_rate, 0)}
@@ -110,7 +110,7 @@ export default function SeriesSummary({ data }) {
         </>
       )}
 
-      <p style={{ fontSize: type.meta, color: colors.textMuted, fontFamily: font.mono, marginTop: space.md }}>
+      <p style={{ fontSize: type.body, color: colors.textMuted, marginTop: space.md }}>
         Repeats:{" "}
         {runs.map((r, i) => `#${i + 1} ${r.status}${r.is_group ? " (split)" : ""}${r.slo_verdict ? ` SLO ${r.slo_verdict}` : ""}`).join(" · ") || "none started"}
       </p>

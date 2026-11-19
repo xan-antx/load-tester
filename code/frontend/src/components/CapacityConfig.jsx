@@ -50,14 +50,14 @@ export default function CapacityConfig({ plan, spawnRate, onPlanChange, onSpawnR
         <input type="checkbox" checked={plan.earlyStop} onChange={(e) => set("earlyStop")(e.target.checked)} />
         Stop after the first step that misses the SLO
       </label>
-      <p style={{ margin: `${space.sm}px 0 0`, fontSize: type.meta, color: tooLong ? colors.warning : colors.textMuted }}>
+      <p style={{ margin: `${space.sm}px 0 0`, fontSize: type.meta, color: tooLong ? colors.text : colors.textMuted }}>
         {steps.length} step{steps.length === 1 ? "" : "s"} ({steps.slice(0, 6).join(", ")}{steps.length > 6 ? ", …" : ""} users)
         × {plan.stepSeconds} s = {total} s{tooLong ? ` — longer than the ${CAPACITY_LIMITS.totalSeconds} s limit; use fewer or shorter steps.` : "."}
         {" "}Each step is judged against the SLO below. A capacity run always runs as one Locust process (it is
         never split into parallel processes).
       </p>
       {!sloReady && (
-        <p style={{ margin: `${space.xs}px 0 0`, fontSize: type.meta, color: colors.warning }}>
+        <p style={{ margin: `${space.xs}px 0 0`, fontSize: type.meta, color: colors.text }}>
           A capacity run needs an SLO: turn it on and set p95, average, server errors or unexpected answers.
         </p>
       )}

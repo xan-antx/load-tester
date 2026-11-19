@@ -1,0 +1,626 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-18T20:32:02+00:00",
+  "title": "Design System: Elevate Load Tester",
+  "extensions": {
+    "colorMeta": {
+      "graphite-page": {
+        "role": "neutral",
+        "displayName": "Graphite Page",
+        "canonical": "#111315",
+        "tonalRamp": [
+          "#0B0B0B",
+          "#242526",
+          "#404244",
+          "#5F6164",
+          "#808385",
+          "#A3A5A7",
+          "#C8C9CA",
+          "#EEEEEF"
+        ]
+      },
+      "graphite-panel": {
+        "role": "neutral",
+        "displayName": "Graphite Panel",
+        "canonical": "#171A1D",
+        "tonalRamp": [
+          "#0B0B0C",
+          "#242526",
+          "#404245",
+          "#5E6265",
+          "#7F8387",
+          "#A2A5A8",
+          "#C7C9CB",
+          "#EEEEEF"
+        ]
+      },
+      "graphite-raised": {
+        "role": "neutral",
+        "displayName": "Graphite Raised",
+        "canonical": "#1E2226",
+        "tonalRamp": [
+          "#0B0B0C",
+          "#242527",
+          "#3F4245",
+          "#5D6266",
+          "#7E8388",
+          "#A2A5A9",
+          "#C7C9CC",
+          "#EEEEEF"
+        ]
+      },
+      "graphite-inset": {
+        "role": "neutral",
+        "displayName": "Graphite Inset",
+        "canonical": "#0D0F11",
+        "tonalRamp": [
+          "#0B0B0B",
+          "#242526",
+          "#404244",
+          "#5F6164",
+          "#808385",
+          "#A3A5A7",
+          "#C8C9CA",
+          "#EEEEEF"
+        ]
+      },
+      "seam": {
+        "role": "neutral",
+        "displayName": "Seam",
+        "canonical": "#2C3237",
+        "tonalRamp": [
+          "#0A0B0C",
+          "#232527",
+          "#3E4346",
+          "#5C6268",
+          "#7C8389",
+          "#A1A6AA",
+          "#C6C9CC",
+          "#EDEEEF"
+        ]
+      },
+      "seam-subtle": {
+        "role": "neutral",
+        "displayName": "Seam Subtle",
+        "canonical": "#22272B",
+        "tonalRamp": [
+          "#0B0B0C",
+          "#232527",
+          "#3F4346",
+          "#5C6267",
+          "#7D8388",
+          "#A1A6A9",
+          "#C7C9CC",
+          "#EDEEEF"
+        ]
+      },
+      "readout-white": {
+        "role": "neutral",
+        "displayName": "Readout White",
+        "canonical": "#E3E6E8",
+        "tonalRamp": [
+          "#0B0B0B",
+          "#242526",
+          "#414243",
+          "#5F6263",
+          "#808384",
+          "#A3A5A7",
+          "#C8C9CA",
+          "#EEEEEF"
+        ]
+      },
+      "caption-grey": {
+        "role": "neutral",
+        "displayName": "Caption Grey",
+        "canonical": "#8D969E",
+        "tonalRamp": [
+          "#0A0B0C",
+          "#222528",
+          "#3D4348",
+          "#5A626A",
+          "#7B848B",
+          "#A0A6AC",
+          "#C6CACD",
+          "#EDEFF0"
+        ]
+      },
+      "faint-grey": {
+        "role": "neutral",
+        "displayName": "Faint Grey",
+        "canonical": "#818A92",
+        "tonalRamp": [
+          "#0A0B0C",
+          "#222528",
+          "#3D4348",
+          "#5A626A",
+          "#7B848B",
+          "#9FA6AC",
+          "#C6CACD",
+          "#EDEFF0"
+        ]
+      },
+      "signal-teal": {
+        "role": "primary",
+        "displayName": "Signal Teal",
+        "canonical": "#2DD4BF",
+        "tonalRamp": [
+          "#030E0C",
+          "#002D27",
+          "#005146",
+          "#007867",
+          "#009B88",
+          "#5AB8A9",
+          "#A2D5CC",
+          "#E1F3EF"
+        ]
+      },
+      "signal-teal-bright": {
+        "role": "primary",
+        "displayName": "Signal Teal Bright",
+        "canonical": "#5EEAD4",
+        "tonalRamp": [
+          "#030E0C",
+          "#002D26",
+          "#005045",
+          "#007765",
+          "#009987",
+          "#61B7A8",
+          "#A5D5CB",
+          "#E2F3EF"
+        ]
+      },
+      "signal-teal-wash": {
+        "role": "primary",
+        "displayName": "Signal Teal Wash",
+        "canonical": "rgba(45, 212, 191, 0.10)"
+      },
+      "on-signal": {
+        "role": "neutral",
+        "displayName": "On Signal",
+        "canonical": "#0B1312",
+        "tonalRamp": [
+          "#0A0B0B",
+          "#222625",
+          "#3D4443",
+          "#5A6462",
+          "#7B8583",
+          "#9FA7A6",
+          "#C6CAC9",
+          "#EDEFEE"
+        ]
+      },
+      "pass-green": {
+        "role": "secondary",
+        "displayName": "Pass Green",
+        "canonical": "#3FB950",
+        "tonalRamp": [
+          "#040E05",
+          "#052E0B",
+          "#00520D",
+          "#007906",
+          "#1B9C36",
+          "#6EBA73",
+          "#ABD7AC",
+          "#E4F4E4"
+        ]
+      },
+      "pass-green-wash": {
+        "role": "secondary",
+        "displayName": "Pass Green Wash",
+        "canonical": "rgba(63, 185, 80, 0.12)"
+      },
+      "reject-amber": {
+        "role": "secondary",
+        "displayName": "Reject Amber",
+        "canonical": "#D29922",
+        "tonalRamp": [
+          "#100A03",
+          "#332100",
+          "#5D3A00",
+          "#895500",
+          "#AD7700",
+          "#C59E5B",
+          "#DDC69F",
+          "#F6EDDF"
+        ]
+      },
+      "reject-amber-wash": {
+        "role": "secondary",
+        "displayName": "Reject Amber Wash",
+        "canonical": "rgba(210, 153, 34, 0.13)"
+      },
+      "throttle-blue": {
+        "role": "secondary",
+        "displayName": "Throttle Blue",
+        "canonical": "#58A6FF",
+        "tonalRamp": [
+          "#050C15",
+          "#0C2642",
+          "#0E4278",
+          "#0961B2",
+          "#3784D9",
+          "#75A9E6",
+          "#ADCCF2",
+          "#E4F0FE"
+        ]
+      },
+      "throttle-blue-wash": {
+        "role": "secondary",
+        "displayName": "Throttle Blue Wash",
+        "canonical": "rgba(88, 166, 255, 0.12)"
+      },
+      "fault-red": {
+        "role": "secondary",
+        "displayName": "Fault Red",
+        "canonical": "#F85149",
+        "tonalRamp": [
+          "#160605",
+          "#460F0C",
+          "#7D0F11",
+          "#B80012",
+          "#E13E39",
+          "#F17F73",
+          "#FBB5AC",
+          "#FFE7E4"
+        ]
+      },
+      "fault-red-wash": {
+        "role": "secondary",
+        "displayName": "Fault Red Wash",
+        "canonical": "rgba(248, 81, 73, 0.12)"
+      },
+      "dead-line-grey": {
+        "role": "secondary",
+        "displayName": "Dead-Line Grey",
+        "canonical": "#8B949E",
+        "tonalRamp": [
+          "#0A0B0C",
+          "#222529",
+          "#3D4349",
+          "#5A626B",
+          "#7B838D",
+          "#9FA6AD",
+          "#C6CACE",
+          "#EDEFF0"
+        ]
+      },
+      "dead-line-wash": {
+        "role": "secondary",
+        "displayName": "Dead-Line Wash",
+        "canonical": "rgba(139, 148, 158, 0.12)"
+      },
+      "leak-violet": {
+        "role": "secondary",
+        "displayName": "Leak Violet",
+        "canonical": "#C297FF",
+        "tonalRamp": [
+          "#0D0913",
+          "#2B1D3E",
+          "#4D3170",
+          "#7247A6",
+          "#9369CB",
+          "#B195DC",
+          "#D0C0EB",
+          "#F1EBFC"
+        ]
+      },
+      "leak-violet-wash": {
+        "role": "secondary",
+        "displayName": "Leak Violet Wash",
+        "canonical": "rgba(194, 151, 255, 0.12)"
+      },
+      "trace-iris": {
+        "role": "tertiary",
+        "displayName": "Trace Iris",
+        "canonical": "#9085e9",
+        "tonalRamp": [
+          "#0A0A14",
+          "#232040",
+          "#3F3774",
+          "#5E50AD",
+          "#7E72D2",
+          "#A09BE2",
+          "#C6C4EF",
+          "#EDEDFD"
+        ]
+      },
+      "trace-rose": {
+        "role": "tertiary",
+        "displayName": "Trace Rose",
+        "canonical": "#d55181",
+        "tonalRamp": [
+          "#14070A",
+          "#3F1323",
+          "#711E3E",
+          "#A7275C",
+          "#CE4E7D",
+          "#E284A1",
+          "#F1B7C6",
+          "#FEE8ED"
+        ]
+      },
+      "graticule": {
+        "role": "neutral",
+        "displayName": "Graticule",
+        "canonical": "#262B30",
+        "tonalRamp": [
+          "#0B0B0C",
+          "#232527",
+          "#3F4246",
+          "#5C6268",
+          "#7D8389",
+          "#A1A6AA",
+          "#C7C9CC",
+          "#EDEEEF"
+        ]
+      },
+      "scrollbar-thumb": {
+        "role": "neutral",
+        "displayName": "Scrollbar Thumb",
+        "canonical": "#3A4148",
+        "tonalRamp": [
+          "#0A0B0C",
+          "#232528",
+          "#3E4347",
+          "#5B626A",
+          "#7C838B",
+          "#A0A6AB",
+          "#C6C9CD",
+          "#EDEFF0"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "readout": {
+        "displayName": "Readout",
+        "purpose": "Big figures in the stat row and the SLO verdict line (600). Mono, tabular."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "The app name in the header only."
+      },
+      "heading": {
+        "displayName": "Heading",
+        "purpose": "Step panel titles, Summary of results, section headings; findings at 400."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "UI text, button labels, rail labels; descriptions capped at 75ch."
+      },
+      "data": {
+        "displayName": "Data",
+        "purpose": "Readouts at small size: table cells, chips, case names, status codes, legend values."
+      },
+      "meta": {
+        "displayName": "Meta",
+        "purpose": "Captions, notes under readouts and hints, in Barlow."
+      },
+      "verdict": {
+        "displayName": "Verdict",
+        "purpose": "The findings headline sentence of a run, Barlow 600 at 28px."
+      }
+    },
+    "shadows": [],
+    "motion": [
+      {
+        "name": "motion-fast",
+        "value": "150ms ease",
+        "purpose": "Hover and press feedback on background, border, colour and transform."
+      },
+      {
+        "name": "motion-base",
+        "value": "200ms ease-out",
+        "purpose": "Progress fill (scaleX transform) and state changes."
+      },
+      {
+        "name": "press",
+        "value": "translateY(1px)",
+        "purpose": "Button press."
+      },
+      {
+        "name": "rise",
+        "value": "translateY(8px) to none, 280ms cubic-bezier(0.16, 1, 0.3, 1)",
+        "purpose": "Results and views arriving; transform only, so content is never invisible."
+      },
+      {
+        "name": "reduced-motion",
+        "value": "prefers-reduced-motion: reduce disables all animation and transition",
+        "purpose": "Accessibility; rail scrolling becomes instant."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "setup-one-column",
+        "value": "1099px"
+      },
+      {
+        "name": "slo-rows-stack",
+        "value": "760px"
+      },
+      {
+        "name": "narrow",
+        "value": "640px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The one main action at a decision point: Analyze, Generate cases, Start load test.",
+      "html": "<button class=\"ds-btn-primary\">Start load test</button>",
+      "css": ".ds-btn-primary{display:inline-flex;align-items:center;gap:8px;padding:8px 16px;border:1px solid var(--c-accent, #2DD4BF);border-radius:6px;background:var(--c-accent, #2DD4BF);color:var(--c-on-accent, #0B1312);font-family:\"Barlow\", \"Segoe UI\", system-ui, sans-serif;font-size:14px;font-weight:600;line-height:1.4;cursor:pointer;transition:background-color 150ms ease,border-color 150ms ease,transform 150ms ease}.ds-btn-primary:hover{background:var(--c-accent-hover, #5EEAD4);border-color:var(--c-accent-hover, #5EEAD4)}.ds-btn-primary:active{transform:translateY(1px)}.ds-btn-primary:focus-visible{outline:2px solid var(--c-accent, #2DD4BF);outline-offset:2px}"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Supporting actions: Mark as baseline, Download report, Compare.",
+      "html": "<button class=\"ds-btn-secondary\">Download report (.md)</button>",
+      "css": ".ds-btn-secondary{display:inline-flex;align-items:center;padding:8px 16px;background:transparent;border:1px solid var(--c-border, #2C3237);border-radius:6px;color:var(--c-text, #E3E6E8);font-family:\"Barlow\", \"Segoe UI\", system-ui, sans-serif;font-size:14px;font-weight:500;line-height:1.4;cursor:pointer;transition:background-color 150ms ease,border-color 150ms ease,transform 150ms ease}.ds-btn-secondary:hover{background:var(--c-surface-raised, #1E2226);border-color:var(--c-text-faint, #818A92)}.ds-btn-secondary:active{transform:translateY(1px)}.ds-btn-secondary:focus-visible{outline:2px solid var(--c-accent, #2DD4BF);outline-offset:2px}.ds-btn-secondary:disabled{background:var(--c-surface-raised, #1E2226);border-color:var(--c-border-subtle, #22272B);color:var(--c-text-faint, #818A92);cursor:not-allowed}"
+    },
+    {
+      "name": "Text Link Action",
+      "kind": "button",
+      "refersTo": "button-link",
+      "description": "Small inline actions: Show raw response, Refresh list.",
+      "html": "<button class=\"ds-btn-link\">Show raw response</button>",
+      "css": ".ds-btn-link{background:none;border:none;padding:4px 0;color:var(--c-accent, #2DD4BF);font-family:\"Barlow\", \"Segoe UI\", system-ui, sans-serif;font-size:12px;cursor:pointer;text-decoration:underline;text-decoration-color:transparent;text-underline-offset:3px;transition:text-decoration-color 150ms ease}.ds-btn-link:hover{text-decoration-color:currentColor}.ds-btn-link:focus-visible{outline:2px solid var(--c-accent, #2DD4BF);outline-offset:2px}"
+    },
+    {
+      "name": "Segmented Control",
+      "kind": "chip",
+      "refersTo": "segmented-pressed",
+      "description": "Two to four exclusive options (Flat / By category, 2xx / 4xx, Fixed load / Find capacity); aria-pressed.",
+      "html": "<div class=\"ds-seg\" role=\"group\" aria-label=\"Expected answer\"><button aria-pressed=\"false\">2xx</button><button aria-pressed=\"true\">4xx</button></div>",
+      "css": ".ds-seg{display:inline-flex;padding:2px;border:1px solid var(--c-border, #2C3237);border-radius:6px;background:var(--c-inset, #0D0F11)}.ds-seg button{padding:4px 12px;border:none;border-radius:4px;background:transparent;color:var(--c-text-muted, #8D969E);font-family:\"IBM Plex Mono\", ui-monospace, Consolas, monospace;font-size:12px;cursor:pointer;transition:background-color 150ms ease,color 150ms ease}.ds-seg button:hover{color:var(--c-text, #E3E6E8)}.ds-seg button[aria-pressed=\"true\"]{background:var(--c-surface-raised, #1E2226);color:var(--c-text, #E3E6E8);font-weight:600;box-shadow:inset 0 0 0 1px var(--c-border, #2C3237)}.ds-seg button:focus-visible{outline:2px solid var(--c-accent, #2DD4BF);outline-offset:2px}"
+    },
+    {
+      "name": "Target URL Field",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Recessed inset field; entered values are readouts, so they are mono.",
+      "html": "<label class=\"ds-field\"><span class=\"ds-label\">Target URL</span><input class=\"ds-input\" value=\"http://127.0.0.1:8000/api/login\"></label>",
+      "css": ".ds-field{display:block;width:420px;max-width:100%}.ds-label{display:block;margin-bottom:4px;font-family:\"Barlow\", \"Segoe UI\", system-ui, sans-serif;font-size:12px;color:var(--c-text-muted, #8D969E)}.ds-input{width:100%;box-sizing:border-box;padding:8px 12px;background:var(--c-inset, #0D0F11);border:1px solid var(--c-border, #2C3237);border-radius:6px;color:var(--c-text, #E3E6E8);font-family:\"IBM Plex Mono\", ui-monospace, Consolas, monospace;font-size:14px}.ds-input:focus-visible{outline:2px solid var(--c-accent, #2DD4BF);outline-offset:2px}"
+    },
+    {
+      "name": "Findings Headline",
+      "kind": "custom",
+      "refersTo": "findings-headline",
+      "description": "Signature: the first block of a result. Bugs named with the payload that triggered them, then coverage.",
+      "html": "<section class=\"ds-find\"><h2 class=\"ds-find-h\"><svg width=\"28\" height=\"28\" viewBox=\"0 0 16 16\" fill=\"none\" stroke=\"#F85149\" stroke-width=\"1.75\" stroke-linecap=\"round\"><path d=\"M4.5 4.5l7 7M11.5 4.5l-7 7\"/></svg>3 cases found bugs</h2><ul class=\"ds-bugs\"><li><div><i style=\"background:#C297FF\"></i><b>Accepted invalid input</b> <span>1 case: answered 2xx to input it should have rejected</span></div><div class=\"ds-case\"><code>very_long_string_username</code> <span>×11 · expected 4xx, got 200</span> <code class=\"ds-pl\">{\"username\":\"aaaaaaaa…\"}</code></div></li><li><div><i style=\"background:#F85149\"></i><b>Server error (500)</b> <span>2 cases: the server crashed on this input</span></div><div class=\"ds-case\"><code>wrong_type_expiresInMins</code> <span>×5 · expected 4xx, got 500</span> <code class=\"ds-pl\">{\"expiresInMins\":\"not_a_number\"}</code></div></li></ul><p class=\"ds-cov\"><b>Coverage: 20 of 27 cases tested.</b> 7 cases got no requests, so they were not judged.</p></section>",
+      "css": ".ds-find{width:680px;max-width:100%;display:grid;gap:12px;font-family:\"Barlow\", \"Segoe UI\", system-ui, sans-serif;color:var(--c-text, #E3E6E8)}.ds-find-h{display:flex;align-items:center;gap:12px;margin:0;font-size:28px;font-weight:600;line-height:1.15}.ds-bugs{list-style:none;margin:0;padding:16px 24px;display:grid;gap:16px;border-radius:6px;background:var(--c-surface-raised, #1E2226)}.ds-bugs b{font-size:16px}.ds-bugs span{color:var(--c-text-muted, #8D969E);font-size:14px}.ds-bugs i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:8px}.ds-case{display:flex;flex-wrap:wrap;gap:4px 12px;margin:8px 0 0 18px;font-size:14px}.ds-case code{font-family:\"IBM Plex Mono\", ui-monospace, Consolas, monospace}.ds-pl{padding:0 8px;border-radius:4px;background:var(--c-inset, #0D0F11);color:var(--c-text-muted, #8D969E);font-size:12px;line-height:20px}.ds-cov{margin:0;font-size:14px}"
+    },
+    {
+      "name": "Run Pill",
+      "kind": "custom",
+      "refersTo": "run-pill",
+      "description": "Keeps a running test visible from every view; opens Run.",
+      "html": "<button class=\"ds-pill\"><span class=\"ds-dot\"></span>Running <span class=\"ds-n\">12/60s</span><span class=\"ds-tr\"><span></span></span></button>",
+      "css": ".ds-pill{display:inline-flex;align-items:center;gap:8px;padding:4px 12px;border:1px solid var(--c-accent, #2DD4BF);border-radius:999px;background:var(--c-accent-soft, rgba(45, 212, 191, 0.10));color:var(--c-text, #E3E6E8);font-family:\"Barlow\", \"Segoe UI\", system-ui, sans-serif;font-size:14px;cursor:pointer}.ds-pill:hover{background:var(--c-surface-raised, #1E2226)}.ds-pill:focus-visible{outline:2px solid var(--c-accent, #2DD4BF);outline-offset:2px}.ds-dot{width:8px;height:8px;border-radius:50%;background:var(--c-accent, #2DD4BF)}.ds-n{font-family:\"IBM Plex Mono\", ui-monospace, Consolas, monospace}.ds-tr{width:48px;height:4px;border-radius:999px;background:var(--c-track, #262B30);overflow:hidden}.ds-tr span{display:block;width:20%;height:100%;background:var(--c-accent, #2DD4BF)}"
+    },
+    {
+      "name": "Offline Banner",
+      "kind": "custom",
+      "refersTo": "offline-banner",
+      "description": "Replaces the quiet health light when the backend stops answering.",
+      "html": "<div class=\"ds-off\" role=\"alert\"><div><b>The backend is not answering.</b> Nothing can be analyzed or run until it is back.</div><button>Try again</button></div>",
+      "css": ".ds-off{display:flex;align-items:center;gap:12px;width:640px;max-width:100%;padding:12px 16px;border:1px solid var(--c-danger, #F85149);border-radius:6px;background:var(--c-danger-soft, rgba(248, 81, 73, 0.12));color:var(--c-text, #E3E6E8);font-family:\"Barlow\", \"Segoe UI\", system-ui, sans-serif;font-size:14px}.ds-off b{color:var(--c-danger, #F85149)}.ds-off button{padding:4px 12px;border:1px solid var(--c-border, #2C3237);border-radius:6px;background:transparent;color:var(--c-text, #E3E6E8);font:inherit;font-size:12px;cursor:pointer}"
+    },
+    {
+      "name": "Case Chip",
+      "kind": "chip",
+      "refersTo": "chip",
+      "description": "A case name and its count inside a failure card.",
+      "html": "<span class=\"ds-chip\">sqli_username_2 ×60</span>",
+      "css": ".ds-chip{display:inline-block;padding:0 8px;line-height:20px;font-family:\"IBM Plex Mono\", ui-monospace, Consolas, monospace;font-size:12px;color:var(--c-text-muted, #8D969E);background:var(--c-inset, #0D0F11);border:1px solid var(--c-border-subtle, #22272B);border-radius:4px}"
+    },
+    {
+      "name": "SLO Verdict",
+      "kind": "custom",
+      "refersTo": "verdict-fail",
+      "description": "Secondary card under the findings: PASS/FAIL with one row per target.",
+      "html": "<section class=\"ds-verdict\" aria-label=\"SLO verdict\"><div class=\"ds-v-line\"><span class=\"ds-v-big\">FAIL</span><span>1 of 2 targets met</span></div><ul><li><span class=\"ds-ok\">✓</span><span class=\"ds-v-lab\">Server error rate</span><span class=\"ds-mut\">target ≤ 1 %</span><span class=\"ds-ok\">actual 0 %</span></li><li><span class=\"ds-bad\">✗</span><span class=\"ds-v-lab\">p95 response time</span><span class=\"ds-mut\">target ≤ 150 ms</span><span class=\"ds-bad\">actual ≈181 ms</span></li></ul></section>",
+      "css": ".ds-verdict{width:620px;max-width:100%;box-sizing:border-box;border:1px solid var(--c-danger, #F85149);background:var(--c-surface-raised, #1E2226);border-radius:6px;padding:16px 24px;font-family:\"Barlow\", \"Segoe UI\", system-ui, sans-serif;font-size:14px;color:var(--c-text, #E3E6E8)}.ds-v-line{display:flex;align-items:baseline;flex-wrap:wrap;gap:12px}.ds-v-big{font-family:\"IBM Plex Mono\", ui-monospace, Consolas, monospace;font-size:28px;font-weight:600;line-height:1.1;color:var(--c-danger, #F85149)}.ds-verdict ul{list-style:none;margin:8px 0 0;padding:0;display:grid;gap:4px}.ds-verdict li{display:flex;flex-wrap:wrap;gap:8px}.ds-v-lab{min-width:200px}.ds-ok,.ds-bad,.ds-mut{font-family:\"IBM Plex Mono\", ui-monospace, Consolas, monospace}.ds-ok{color:var(--c-success, #3FB950)}.ds-bad{color:var(--c-danger, #F85149)}.ds-mut{color:var(--c-text-muted, #8D969E)}"
+    },
+    {
+      "name": "Outcome Strip",
+      "kind": "custom",
+      "refersTo": "outcome-strip",
+      "description": "Signature segmented bar of how requests ended, with a legend; widths proportional to counts.",
+      "html": "<div class=\"ds-strip-wrap\"><div class=\"ds-strip\" role=\"img\" aria-label=\"Request outcomes. Passed: 98, Rejected (4xx): 632, Rate limited (429): 1307, Server error (5xx): 70\"><i class=\"ds-pass\" style=\"flex-grow:98\"></i><i class=\"ds-rej\" style=\"flex-grow:632\"></i><i class=\"ds-rate\" style=\"flex-grow:1307\"></i><i class=\"ds-err\" style=\"flex-grow:70\"></i></div><div class=\"ds-legend\"><span><b class=\"ds-pass\"></b>Passed <em>98</em> <s>4.7%</s></span><span><b class=\"ds-rej\"></b>Rejected (4xx) <em>632</em> <s>30.0%</s></span><span><b class=\"ds-rate\"></b>Rate limited (429) <em>1,307</em> <s>62.0%</s></span><span><b class=\"ds-err\"></b>Server error (5xx) <em>70</em> <s>3.3%</s></span></div></div>",
+      "css": ".ds-strip-wrap{width:620px;max-width:100%;font-family:\"Barlow\", \"Segoe UI\", system-ui, sans-serif}.ds-strip{display:flex;gap:1px;height:10px;background:var(--c-track, #262B30);border-radius:4px;overflow:hidden}.ds-strip i{flex-basis:0;min-width:2px}.ds-pass{background:var(--c-success, #3FB950)}.ds-rej{background:var(--c-warning, #D29922)}.ds-rate{background:var(--c-info, #58A6FF)}.ds-err{background:var(--c-danger, #F85149)}.ds-legend{display:flex;flex-wrap:wrap;gap:4px 16px;margin-top:8px;font-size:12px;color:var(--c-text-muted, #8D969E)}.ds-legend span{display:inline-flex;align-items:center;gap:8px}.ds-legend b{width:8px;height:8px;border-radius:2px}.ds-legend em,.ds-legend s{font-style:normal;text-decoration:none;font-family:\"IBM Plex Mono\", ui-monospace, Consolas, monospace}.ds-legend em{color:var(--c-text, #E3E6E8)}.ds-legend s{color:var(--c-text-faint, #818A92)}"
+    },
+    {
+      "name": "Stat Readout Row",
+      "kind": "custom",
+      "description": "Headline figures with no box, divided by 1px seams; readouts in mono at 28px.",
+      "html": "<div class=\"ds-stats\"><div><span>Requests</span><strong>2,107</strong></div><div><span>Failure rate</span><strong>95.3%</strong><small>2,009 of 2,107</small></div><div><span>p95 response</span><strong>≈181 ms</strong><small>approximate (split run)</small></div></div>",
+      "css": ".ds-stats{display:flex;flex-wrap:wrap;row-gap:16px;font-family:\"Barlow\", \"Segoe UI\", system-ui, sans-serif}.ds-stats>div{display:grid;padding:0 24px;border-left:1px solid var(--c-border, #2C3237)}.ds-stats>div:first-child{padding-left:0;border-left:none}.ds-stats span{font-size:12px;color:var(--c-text-muted, #8D969E)}.ds-stats strong{font-family:\"IBM Plex Mono\", ui-monospace, Consolas, monospace;font-size:28px;font-weight:400;line-height:1.2;color:var(--c-text, #E3E6E8);font-variant-numeric:tabular-nums}.ds-stats small{font-size:12px;color:var(--c-text-muted, #8D969E)}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Instrument Console",
+    "overview": "Think of a bench instrument with a quiet graphite casing. The panels step back so the measured result comes forward. The casing is four close graphite layers with thin seams between them and no shadows. Everything that is a reading (a number, a URL, an ID, a payload, a status code) is set in IBM Plex Mono with tabular figures. Everything that explains is set in Barlow. Colour appears only where a reading means something. Signal Teal marks what you can act on, and six status hues name how each request ended. Nothing is tinted for decoration.\n\nThe console is dense and calm. It is laid out for a laptop on a desk and for the same laptop on a projector during evaluation demos, so the verdict and the headline numbers must stay legible from the back of a room. It is dark only, with no light theme. Fonts are self-hosted (`code/frontend/public/fonts`), so the console renders offline exactly as it does online.\n\nAll colours, type sizes, spacing, radii, z-index values and durations live in `code/frontend/src/theme.js`. `applyTheme()` publishes them as CSS custom properties (`--c-*`, `--font-*`, `--type-*`, `--space-*`, `--radius-*`, `--z-*`, `--motion-*`). Components read colours from theme.js only.\n\n**Revamped (November 2026).** The tokens, the colours, the meaning of each status colour and the type are unchanged from the original console. The ui-revamp replaced the single long page of numbered step panels with three views (New test, Run, History), moved mono to data only, and made every result lead with its findings. The sections below describe the revamped system.",
+    "keyCharacteristics": [
+      "Graphite tonal layers (inset → page → panel → raised), separated by 1px seams. No shadows, no side tabs.",
+      "One action accent, Signal Teal, which never means \"passed\".",
+      "A fixed status palette whose meanings stay the same on every surface.",
+      "Mono for readouts, sans for words. Tabular figures everywhere.",
+      "Five type sizes. Hierarchy comes from weight and colour before size.",
+      "Findings first: bugs with their payloads, then coverage, then the SLO.",
+      "A 4px spacing scale. Gaps inside a group are smaller than gaps between groups."
+    ],
+    "rules": [
+      {
+        "name": "The Signal Is Not a Pass Rule",
+        "body": "Signal Teal marks what you can act on or where you are. Success is always Pass Green. A finished step's ✓ is teal because it is navigation state, not a test result.",
+        "section": "colors"
+      },
+      {
+        "name": "The Fixed Legend Rule",
+        "body": "A status colour means one outcome on every surface. Never reuse a status hue for decoration, branding or emphasis, and never pick a chart colour from the status set.",
+        "section": "colors"
+      },
+      {
+        "name": "The Name It Too Rule",
+        "body": "Colour is never the only carrier. Every outcome, verdict and state is also named in text (or `aria-label`), with a mark: ✓ ✗ ● ○ –.",
+        "section": "colors"
+      },
+      {
+        "name": "The Mono Means Measured Rule",
+        "body": "Mono is only for readouts: numbers, URLs, IDs, payloads, status codes and case names. It is never used for labels, headings, states or explanatory text. Table headers, field labels, step states and the health light are all Barlow.",
+        "section": "typography"
+      },
+      {
+        "name": "The Weight Before Size Rule",
+        "body": "Within one panel, set hierarchy with weight (600 vs 400) and colour (Readout White vs Caption Grey) before reaching for a new size. There are five sizes; don't add a sixth.",
+        "section": "typography"
+      },
+      {
+        "name": "The Back Row Rule",
+        "body": "Verdicts and headline numbers must be readable on a projector: Readout size, Readout White or their status colour, never Faint Grey. Faint Grey is only for things that don't matter from across the room.",
+        "section": "typography"
+      },
+      {
+        "name": "The Fold Rule",
+        "body": "The answer to \"what happened?\" is above the fold: Run opens at the top, and New test's Start stays visible while the cases scroll.",
+        "section": "layout"
+      },
+      {
+        "name": "The Clamp Rule",
+        "body": "Every single-column grid clamps its track (`grid-template-columns: minmax(0, 1fr)`). A no-wrap payload or URL may cut with an ellipsis, but it never widens the page.",
+        "section": "layout"
+      },
+      {
+        "name": "The No Shadow Rule",
+        "body": "Surfaces never cast shadows. To lift something, move it up one graphite layer. To draw attention to it, strengthen its seam.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do take every colour, size, space, radius, z-index and duration from `theme.js` / the `--c-*` custom properties. Components never hard-code hex values.",
+      "Do lead every result with its findings, then coverage, then the SLO.",
+      "Do use Signal Teal for actions, focus, progress, selection and the current view only, and Pass Green for passing.",
+      "Do pair every status colour with its name and an SVG icon, so no meaning depends on colour alone (WCAG 2.2 AA).",
+      "Do set data (numbers, URLs, IDs, payloads, status codes, case names) in IBM Plex Mono, and labels, headings, states and explanations in Barlow.",
+      "Do keep verdicts and headline numbers at 28px in Readout White or their status colour, so they read on a projector.",
+      "Do put an error directly under the control that caused it.",
+      "Do mark untested and \"off\" states with dashed outlines.",
+      "Do mark every approximate value with \"≈\" where it is read.",
+      "Do keep motion small: - a 6–8px rise when a view or a result arrives; - the progress fill; - pulsing run dots; - a short popover entrance. Animate only transform and colour (opacity only on popovers), and honour `prefers-reduced-motion`."
+    ],
+    "donts": [
+      "Don't use mono for labels, headings or explanatory text.",
+      "Don't use Signal Teal to mean success, or Reject Amber (a 4xx colour) for general warnings. A warning is Readout White text with an alert icon.",
+      "Don't pick chart series colours from the status palette.",
+      "Don't add shadows, glows, gradients or thick coloured side borders.",
+      "Don't set anything a demo audience needs in Faint Grey.",
+      "Don't add a sixth type size or a second accent colour.",
+      "Don't explain things only in `title` tooltips; use a popover or a sentence.",
+      "Don't load fonts or assets from external hosts. The console must render offline.",
+      "Don't let a run with bugs or untested cases look all-green, or show an untested case as 0%."
+    ]
+  }
+}

@@ -252,3 +252,120 @@ Every issue has an id (U1, A1 …) that matches the table at the end.
 | A4 | WCAG 2.4.3 / 4.1.3 | High | Errors far down the page left focus on the button and the banner off-screen. | Fixed with U1: focus moves to the banner. |
 | A5 | WCAG 1.3.1 Info and relationships | Low | Run-history checkboxes were announced without target, status or baseline. | Fixed: the checkbox label now includes all of them. |
 | A6 | WCAG 1.3.1 / 3.3.2 | Low | Tooltip-only explanations. | Deferred: same as U19. |
+
+---
+
+## Revamp, 19 November 2026 (ui-revamp branch)
+
+The plan is in [ux-revamp-plan.md](ux-revamp-plan.md), based on a fresh
+`/impeccable critique`, which scored 24/40. The visual identity is unchanged:
+graphite surfaces, the single Signal Teal accent, the outcome colours,
+self-hosted fonts, and no network access needed. The backend and its API
+contracts are untouched.
+
+### What changed
+
+- **Three views instead of one long page.**
+  - **New test:** compact setup with a sticky Start.
+  - **Run:** progress, then results, at the top of the viewport.
+  - **History:** runs, baselines and Compare.
+  - A running test stays visible as a pill in the header.
+- **Results lead with findings.**
+  - The headline names the cases that found bugs, with the payload that
+    triggered each one and "expected 4xx, got 200".
+  - Then coverage ("25 of 27 cases tested, 2 got no requests"). Untested cases
+    have their own dashed state and are never shown as a green 0%.
+  - Then load effects (429, no answer), labelled as not bugs.
+  - The SLO is a secondary card below.
+- **One "unexpected answers" figure.** It means total minus answers that
+  matched the expected outcome. It drives:
+  - the KPI;
+  - the outcome bar;
+  - the table column;
+  - the chart line;
+  - Compare;
+  - the Markdown report.
+
+  "Failure rate" and "Problem rate" are gone. The SLO's "unexpected outcome"
+  target is shown as "Wrong answers to the input".
+- **Charts.**
+  - The y-axis is scaled to the data.
+  - SLO targets are drawn as dashed lines.
+  - Ramp-up is shown as a band.
+  - Charts are hidden when the run has fewer than 5 seconds of history.
+- **Case selection.**
+  - A full-width table: category chips with counts, search, and select all or
+    none for the current filter.
+  - Each case shows the value it sends.
+  - Each case has a 2xx / 4xx segmented control.
+- **Load.**
+  - Smoke / Normal / Stress / Custom presets.
+  - A live estimate ("Sends about 1,049 requests, about 39 per case").
+  - A warning when cases may never be sent.
+  - SLO targets with an explicit "not checked" off state.
+- **Actions.** Re-run with same settings, and Edit and re-run, for runs
+  started from this browser. Their configs are kept in localStorage.
+- **Visual cleanup.**
+  - Mono is used only for data.
+  - No side-tab borders and no numbered section labels.
+  - Explanations moved from title tooltips into "?" popovers.
+  - Authored SVG icons replace glyphs.
+- **Errors appear under the control that caused them.** The health light stays
+  quiet while connected; when the backend is offline, a prominent banner with
+  "Try again" replaces it.
+
+### Status of the earlier issues
+
+| Id | Now |
+|---|---|
+| U1, A4 | Changed: errors appear under the control that failed, with `role="alert"`. The focus no longer jumps to the top of the page. |
+| U9 | Fixed fully: Run opens at the top and shows progress immediately. |
+| U12 | Replaced: one "unexpected answers" figure. A correct 4xx rejection is an expected answer. |
+| U15 | Label is now "Start per second", with a sentence explaining ramp-up and spawn rate. |
+| U16 | Partly fixed: History shows the full target URL for runs started from this browser. For other runs it shows the host only, which needs a backend change. |
+| U19, A6 | Fixed: definitions are in "?" popovers (keyboard and screen-reader reachable) or visible sentences. |
+| U20 | Fixed: a new run replaces the Run view, and History is the place for older runs. |
+| U2, U3, U4–U8, U10, U11, U13, U14, U17, A1–A3, A5 | Kept. |
+| U18 | Still open: filtering or deleting runs needs a backend endpoint. |
+
+### Checked
+
+- The real flow against the mock target, at 1440 px:
+  - analyze, generate 27 cases;
+  - Smoke run;
+  - Edit and re-run with optional fields set to 2xx;
+  - Normal run;
+  - Compare;
+  - stop mid-run with 166 cases (149 untested).
+- Backend offline: the banner appears, and Analyze shows an inline error.
+- Very long URL.
+- No horizontal page scroll at 1440, 768 or 390 px on any view.
+- `impeccable detect`: clean on the source. On the rendered pages it flags
+  Signal Teal and Leak Violet as an "AI palette". Both are mandated by
+  DESIGN.md, so these are false positives.
+- `npm run lint` and `npm run build` are clean, and the 356 backend tests pass.
+
+### Still open
+
+- **Projector check on real hardware.** 12 px meta text remains for captions,
+  legends and counts. Verdicts and figures are 28 px.
+- **Keyboard-only and screen-reader passes.** Checked by structure (labels,
+  `aria-pressed`, `aria-describedby`, focus ring, Esc on popovers), but not
+  with NVDA.
+- **Arrow-key navigation inside segmented controls.** Each segment is a
+  separate Tab stop.
+- **History findings column.** It fetches up to 25 finished runs' status, one
+  request each, the first time History opens.
+
+### Backend changes recommended but not made
+
+1. **Guarantee coverage.** `code/locust_tests/dynamic_locustfile.py` uses
+   `random.choice(CASES)` with a 0.5–2 s wait, so short runs leave cases
+   untested. A per-user cycle offset by user index would send every case once
+   the run has at least as many requests as cases, for example
+   `itertools.cycle(CASES[i:] + CASES[:i])`.
+2. **Store the target path and the case payloads per run.** This would give
+   full URLs, payloads in findings, and Re-run from any browser or the CLI.
+3. **Add per-run findings and coverage counts to `/api/jobs`.** This avoids one
+   status request per History row.
+4. **A delete or filter endpoint for runs (U18).**

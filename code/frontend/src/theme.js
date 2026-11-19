@@ -103,6 +103,7 @@ export const space = {
 export const z = {
   local: 1,
   sticky: 10,
+  overlay: 20, // popovers, above sticky bars
 };
 
 export const motion = {

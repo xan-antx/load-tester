@@ -47,3 +47,8 @@ perf-results/
 *.swp
 .DS_Store
 Thumbs.db
+
+.agents/
+.github/skills/
+.github/agents/
+.github/hooks/

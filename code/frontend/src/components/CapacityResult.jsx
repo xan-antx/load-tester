@@ -141,8 +141,7 @@ export default function CapacityResult({ capacity, plan, slo }) {
       <div
         style={{
           border: `1px solid ${tone}`,
-          borderLeft: `4px solid ${tone}`,
-          background: colors.accentSoft,
+          background: colors.surfaceRaised,
           borderRadius: radius.md,
           padding: `${space.md}px ${space.lg}px`,
         }}
@@ -160,10 +159,10 @@ export default function CapacityResult({ capacity, plan, slo }) {
 
       {steps.length > 0 && (
         <div style={{ ...subPanelStyle, padding: space.md, marginTop: space.sm }}>
-          <div aria-live="polite" style={{ fontFamily: font.mono, fontSize: type.meta, color: colors.textMuted, minHeight: 18 }}>
+          <div aria-live="polite" style={{ fontSize: type.body, color: colors.textMuted, minHeight: 20 }}>
             {h
               ? `${h.planned_users} users · ${fmt(h.rps, 1)} req/s · p95 ${fmt(h.p95_ms)} ms · server errors ${fmt(h.server_error_rate_pct, 1)}% · 429 ${fmt(h.rate_limited_pct, 1)}% · ${h.complete ? h.verdict || "not judged" : "partial step"}`
-              : "Hover a chart to read one step's values"}
+              : "Point at a chart to read one step's values"}
           </div>
           <StepChart
             title="p95 response time per step (ms)"

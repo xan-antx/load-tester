@@ -9,3 +9,10 @@ export function formatTime(ts) {
   if (Number.isNaN(date.getTime())) return String(ts);
   return date.toLocaleString();
 }
+
+// Milliseconds since the epoch for a backend UTC timestamp, or null.
+export function parseUtc(ts) {
+  if (!ts) return null;
+  const t = new Date(String(ts).replace(" ", "T") + "Z").getTime();
+  return Number.isNaN(t) ? null : t;
+}
